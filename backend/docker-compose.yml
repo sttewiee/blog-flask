@@ -1,0 +1,25 @@
+version: "3.8"
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: blog
+      POSTGRES_USER: bloguser
+      POSTGRES_PASSWORD: blogpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    command: gunicorn -b 0.0.0.0:8080 run:app
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgresql://bloguser:blogpassword@db:5432/blog
+    depends_on:
+      - db
+
+volumes:
+  db_data:
