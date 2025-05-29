@@ -1,19 +1,47 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 from models import db, Post, Comment
 
 app = Flask(__name__)
 
-# Конфиг для PostgreSQL (используем Docker)
+# Настройка подключения к Postgres (для Docker Compose)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:postgres@db:5432/postgres'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-@app.route('/')
-def index():
-    return "<h2>Flask Blog API работает с PostgreSQL!</h2>"
+# HTML интерфейс
 
-@app.route('/posts', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
+def home():
+    posts = Post.query.order_by(Post.id.desc()).all()
+    return render_template('index.html', posts=posts)
+
+@app.route('/add_post', methods=['POST'])
+def add_post():
+    title = request.form['title']
+    content = request.form['content']
+    post = Post(title=title, content=content)
+    db.session.add(post)
+    db.session.commit()
+    return redirect(url_for('home'))
+
+@app.route('/post/<int:post_id>', methods=['GET'])
+def view_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    comments = Comment.query.filter_by(post_id=post_id).all()
+    return render_template('comments.html', post=post, comments=comments)
+
+@app.route('/post/<int:post_id>/add_comment', methods=['POST'])
+def add_comment(post_id):
+    text = request.form['text']
+    comment = Comment(post_id=post_id, text=text)
+    db.session.add(comment)
+    db.session.commit()
+    return redirect(url_for('view_post', post_id=post_id))
+
+# REST API
+
+@app.route('/api/posts', methods=['GET', 'POST'])
 def handle_posts():
     if request.method == 'POST':
         data = request.json
@@ -28,7 +56,7 @@ def handle_posts():
         for p in posts
     ])
 
-@app.route('/posts/<int:post_id>/comments', methods=['GET', 'POST'])
+@app.route('/api/posts/<int:post_id>/comments', methods=['GET', 'POST'])
 def handle_comments(post_id):
     if request.method == 'POST':
         data = request.json
