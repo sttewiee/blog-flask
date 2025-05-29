@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <title>Flask Blog</title>
+</head>
+<body>
+    <h1>Flask Blog</h1>
+    <form method="POST" action="/add_post">
+        <input name="title" placeholder="Заголовок" required>
+        <br>
+        <textarea name="content" placeholder="Текст" required></textarea>
+        <br>
+        <button type="submit">Добавить пост</button>
+    </form>
+    <hr>
+    <h2>Посты:</h2>
+    {% for post in posts %}
+        <div>
+            <h3><a href="/post/{{ post.id }}">{{ post.title }}</a></h3>
+            <p>{{ post.content }}</p>
+        </div>
+    {% endfor %}
+</body>
+</html>
