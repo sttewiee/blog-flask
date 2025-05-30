@@ -1,4 +1,5 @@
-version: '3.9'
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -26,5 +27,16 @@ services:
     volumes:
       - .:/app
 
+  jenkins:
+    image: jenkins/jenkins:lts
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+    environment:
+      JAVA_OPTS: -Djenkins.install.runSetupWizard=false
+
 volumes:
   pgdata:
+  jenkins_home:
