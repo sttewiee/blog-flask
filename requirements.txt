@@ -1,5 +1,5 @@
 Flask
 flask_sqlalchemy
 psycopg2-binary
-flask-login
 Flask-Migrate
+werkzeug
