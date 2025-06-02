@@ -1,3 +1,5 @@
+# Diploa Project for Pavel
+# Last updated: 02.06.25
 import os
 from flask import Flask, render_template, redirect, url_for, request, flash, session
 from flask_sqlalchemy import SQLAlchemy
