@@ -1,4 +1,3 @@
-# .github/workflows/deploy.yml
 name: Build, Push and Deploy
 
 on:
@@ -10,7 +9,6 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     name: Build and Push Docker Image
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,7 +23,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build and push
+      - name: Build and push image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -37,38 +35,30 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     name: Deploy to Development Server
-
     steps:
-      - name: Deploy to Dev Server
+      - name: Deploy to Dev Server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            #!/bin/bash
-            set -e
+            # 1) Переходим в директорию на сервере, где лежат файлы prod
+            cd ~/blog-flask-prod
 
-            # Путь до директории на вашем сервере, где находится docker-compose.prod.yml
-            DEPLOY_DIR=~/blog-flask/blog-flask-prod
-            REPO_URL=git@github.com:username/blog-flask.git  # замените на ваш URL
+            # 2) Скачиваем/обновляем образ
+            docker compose -f docker-compose.prod.yml pull
 
-            # 1) Если папки нет — клонируем
-            if [ ! -d "$DEPLOY_DIR" ]; then
-              echo "Directory $DEPLOY_DIR not found. Cloning repository..."
-              git clone "$REPO_URL" "$DEPLOY_DIR"
-            fi
+            # 3) Перезапускаем контейнеры
+            docker compose -f docker-compose.prod.yml up -d --force-recreate
 
-            # 2) Переходим в папку и обновляем код до актуального состояния ветки main
-            cd "$DEPLOY_DIR"
-            git fetch origin
-            git reset --hard origin/main
+            # 4) Ждём, чтобы база успела подняться (5–10 секунд)
+            sleep 10
 
-            # 3) Запускаем обновление контейнеров
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml up -d --force-recreate
-
-            # 4) Если внутри контейнера нужен апгрейд БД
-            docker-compose -f docker-compose.prod.yml exec web flask db upgrade
+            # 5) Запускаем миграции внутри контейнера web
+            docker compose -f docker-compose.prod.yml exec web flask db upgrade
 
             echo "✅ Deployment completed successfully!"
+          # если ваш SSH-сервер слушает не 22, укажите порт явно, например:
+          # port: 2222
+
