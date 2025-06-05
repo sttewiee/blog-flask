@@ -32,7 +32,7 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/flask-blog:latest
 
   deploy-to-dev:
-    needs: build-and-push  # Зависит от успешного выполнения сборки
+    needs: build-and-push  # пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     runs-on: ubuntu-latest
     name: Deploy to Development Server
     steps:
@@ -43,9 +43,9 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Обновляем контейнеры на сервере
+            # пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             cd ~/blog-flask-prod
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --force-recreate
-            docker compose -f docker-compose.prod.yml exec web flask db upgrade
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d --force-recreate
+            docker-compose -f docker-compose.prod.yml exec web flask db upgrade
             echo "?? Deployment completed successfully!"
