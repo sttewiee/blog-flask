@@ -16,7 +16,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key')
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# ----- MODELS -----
+# ----- MODELS ----------
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
