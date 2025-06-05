@@ -1,3 +1,4 @@
+# .github/workflows/deploy.yml
 name: Build, Push and Deploy
 
 on:
@@ -9,6 +10,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     name: Build and Push Docker Image
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -32,9 +34,10 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/flask-blog:latest
 
   deploy-to-dev:
-    needs: build-and-push  # ������� �� ��������� ���������� ������
+    needs: build-and-push
     runs-on: ubuntu-latest
     name: Deploy to Development Server
+
     steps:
       - name: Deploy to Dev Server
         uses: appleboy/ssh-action@v1.0.0
@@ -43,9 +46,29 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # ��������� ���������� �� �������
-            cd ~/blog-flask-prod
+            #!/bin/bash
+            set -e
+
+            # Путь до директории на вашем сервере, где находится docker-compose.prod.yml
+            DEPLOY_DIR=~/blog-flask/blog-flask-prod
+            REPO_URL=git@github.com:username/blog-flask.git  # замените на ваш URL
+
+            # 1) Если папки нет — клонируем
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "Directory $DEPLOY_DIR not found. Cloning repository..."
+              git clone "$REPO_URL" "$DEPLOY_DIR"
+            fi
+
+            # 2) Переходим в папку и обновляем код до актуального состояния ветки main
+            cd "$DEPLOY_DIR"
+            git fetch origin
+            git reset --hard origin/main
+
+            # 3) Запускаем обновление контейнеров
             docker-compose -f docker-compose.prod.yml pull
             docker-compose -f docker-compose.prod.yml up -d --force-recreate
+
+            # 4) Если внутри контейнера нужен апгрейд БД
             docker-compose -f docker-compose.prod.yml exec web flask db upgrade
-            echo "?? Deployment completed successfully!"
+
+            echo "✅ Deployment completed successfully!"
