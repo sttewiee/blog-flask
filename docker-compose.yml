@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   db:
@@ -26,3 +25,5 @@ services:
       - db
     volumes:
       - .:/app
+volumes:
+  pgdata:
