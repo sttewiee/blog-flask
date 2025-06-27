@@ -3,3 +3,5 @@ flask_sqlalchemy
 psycopg2-binary
 Flask-Migrate
 werkzeug
+pytest
+pytest-flask
