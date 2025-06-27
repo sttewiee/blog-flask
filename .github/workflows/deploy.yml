@@ -58,7 +58,7 @@ jobs:
           script: |
             # ──────────────────────────────────────────────────────────
             # 1) Переходим в директорию на сервере, где лежат prod-файлы
-            cd ~/blog-flask-prod
+            cd /home/blog-flask/blog-flask-prod
 
             # 2) Забираем/обновляем Docker-образ
             docker-compose -f docker-compose.prod.yml pull
