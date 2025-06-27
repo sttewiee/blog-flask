@@ -51,5 +51,5 @@ jobs:
       - name: Run DB migrations
         run: flask db upgrade
 
-      - name: Run tests (заглушка)
-        run: echo "Тесты можно подключить сюда (например, pytest)"
+      - name: Run tests 
+        run: pytest
