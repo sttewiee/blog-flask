@@ -59,11 +59,35 @@ jobs:
       - name: Install Playwright Browser
         run: python -m playwright install firefox
 
-      # 5. Установка СИСТЕМНЫХ зависимостей для Playwright
-      #    Используем `python -m` чтобы найти playwright, установленный через pip,
-      #    и `sudo` чтобы дать ему права на установку пакетов через apt-get.
-      - name: Install Playwright System Dependencies
-        run: sudo python -m playwright install-deps firefox
+      # 5. Установка СИСТЕМНЫХ зависимостей для Playwright/Firefox
+      #    Мы устанавливаем их напрямую через apt-get, используя список,
+      #    который нам предоставил сам Playwright в предыдущих логах.
+      #    Это самый надежный метод.
+      - name: Install System Dependencies for Firefox
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-shm0 \
+            libx11-xcb1 \
+            libx11-6 \
+            libxcb1 \
+            libxext6 \
+            libxrandr2 \
+            libxcomposite1 \
+            libxcursor1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxi6 \
+            libgtk-3-0 \
+            libpangocairo-1.0-0 \
+            libpango-1.0-0 \
+            libatk1.0-0 \
+            libcairo-gobject2 \
+            libcairo2 \
+            libgdk-pixbuf-2.0-0 \
+            libxrender1 \
+            libasound2 \
+            libfontconfig1
 
       # 6. Запуск тестов
       #    Pytest автоматически найдет conftest.py и все тестовые файлы.
