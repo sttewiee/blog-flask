@@ -1,4 +1,3 @@
-
 services:
   db:
     image: postgres:15
@@ -14,7 +13,9 @@ services:
 
   web:
     build: .
-    command: flask run --host=0.0.0.0
+    # Мы закомментировали эту строку, чтобы Docker использовал команду
+    # `CMD` из нашего Dockerfile (которая запускает Gunicorn).
+    # command: flask run --host=0.0.0.0
     environment:
       FLASK_ENV: development
       DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres

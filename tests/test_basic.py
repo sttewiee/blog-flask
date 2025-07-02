@@ -1,9 +1,17 @@
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from app import app as flask_app
+# tests/test_basic.py
 
-def test_home():
-    with flask_app.test_client() as client:
-        response = client.get("/")
-        assert response.status_code == 200
+def test_home(client):
+    """
+    Проверяет, что главная страница загружается успешно (статус 200)
+    и содержит правильный заголовок в теге <title>.
+    """
+    # Отправляем GET-запрос на главную страницу
+    response = client.get("/")
+
+    # 1. Проверяем, что сервер ответил "200 OK"
+    assert response.status_code == 200
+
+    # 2. Проверяем, что в HTML-коде ответа содержится текст "Мой блог"
+    #    (который должен быть в <title> вашего шаблона index.html)
+    #    response.data - это байты, поэтому мы декодируем их в строку.
+    assert "Мой блог" in response.data.decode('utf-8')

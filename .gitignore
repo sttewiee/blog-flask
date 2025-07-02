@@ -1,0 +1,69 @@
+# -------------------------------------------------------------------
+# .gitignore для Python/Flask/Docker проекта
+# -------------------------------------------------------------------
+
+# Секреты и файлы конфигурации окружения
+# НИКОГДА не добавляйте эти файлы в Git!
+.env
+.env.prod
+.env.*
+*.env
+.env.test
+# Папки виртуального окружения
+# Содержат установленные пакеты и не должны быть в репозитории
+env/
+venv/
+.venv/
+
+# Служебные файлы и кэш Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*$py.class
+
+# Локальная база данных SQLite и папка instance
+# Генерируются локально при запуске
+instance/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Кэш тестов Pytest
+.pytest_cache/
+pytest_*.log
+.coverage
+coverage.xml
+
+# Файлы, генерируемые Playwright
+playwright-report/
+test-results/
+
+# Настройки IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Файлы операционной системы
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+logs/
+
+# Зависимости Node.js (если вдруг появятся)
+node_modules/
+npm-debug.log
+
+# Выходные файлы сборки
+dist/
+build/
+*.egg-info/
+
+# Файлы Docker, которые не должны быть в репозитории
+.dockerignore
+docker-compose.override.yml

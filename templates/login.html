@@ -7,6 +7,19 @@
 </head>
 <body>
 <div class="container mt-4">
+
+    <!-- === НАЧАЛО БЛОКА ДЛЯ СООБЩЕНИЙ === -->
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-info" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <!-- === КОНЕЦ БЛОКА ДЛЯ СООБЩЕНИЙ === -->
+
     <h2>Вход</h2>
     <form method="post">
         <input class="form-control mb-2" name="username" placeholder="Имя пользователя">

@@ -5,3 +5,7 @@ Flask-Migrate
 werkzeug
 pytest
 pytest-flask
+gunicorn
+python-dotenv
+playwright         
+pytest-playwright   
