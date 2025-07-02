@@ -1,8 +1,4 @@
 # .github/workflows/ci.yml
-#
-# CI-пайплайн для автоматического тестирования проекта
-# при каждом push или pull request в ветку 'main'.
-
 name: Flask Blog CI
 
 on:
@@ -13,56 +9,42 @@ on:
 
 jobs:
   build-and-test:
-    # Запускаем на последней версии Ubuntu, предоставляемой GitHub
     runs-on: ubuntu-latest
     name: Build and Run Tests
 
-    # Поднимаем сервис с PostgreSQL, который будет доступен для тестов
     services:
       postgres:
         image: postgres:15
-        # Учетные данные для тестовой базы данных в CI
         env:
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpassword
           POSTGRES_DB: testdb
         ports:
           - 5432:5432
-        # Проверяем готовность базы данных перед тем, как запускать тесты
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
-    # Переменные окружения, которые будут доступны во всех шагах этого job
     env:
-      # Эта переменная будет автоматически подхвачена в conftest.py
       DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
       FLASK_ENV: test
 
     steps:
-      # 1. Загрузка кода из репозитория
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Настройка окружения Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
-      # 3. Установка Python-зависимостей проекта
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. Установка браузера Firefox для Playwright
       - name: Install Playwright Browser
         run: python -m playwright install firefox
 
-      # 5. Установка СИСТЕМНЫХ зависимостей для Playwright/Firefox
-      #    Мы устанавливаем их напрямую через apt-get, используя список,
-      #    который нам предоставил сам Playwright в предыдущих логах.
-      #    Это самый надежный метод.
       - name: Install System Dependencies for Firefox
         run: |
           sudo apt-get update
@@ -78,20 +60,16 @@ jobs:
             libxdamage1 \
             libxfixes3 \
             libxi6 \
-            libgtk-3-0 \
+            libgtk-3-0t64 \
             libpangocairo-1.0-0 \
             libpango-1.0-0 \
-            libatk1.0-0 \
+            libatk1.0-0t64 \
             libcairo-gobject2 \
             libcairo2 \
             libgdk-pixbuf-2.0-0 \
             libxrender1 \
-            libasound2 \
+            libasound2t64 \
             libfontconfig1
 
-      # 6. Запуск тестов
-      #    Pytest автоматически найдет conftest.py и все тестовые файлы.
-      #    - conftest.py создаст приложение и настроит базу данных.
-      #    - Мы запускаем тесты только на Firefox, так как он более стабилен в CI.
       - name: Run tests
         run: pytest --browser firefox
