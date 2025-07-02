@@ -1,55 +1,83 @@
+# .github/workflows/ci.yml
+#
+# Этот CI-пайплайн запускается при каждом push или pull request в ветку 'main'.
+# Его цель - проверить, что код работает корректно и не ломает существующий функционал.
+#
+# Что он делает:
+# 1. Запускает виртуальную машину Ubuntu.
+# 2. Поднимает сервис с базой данных PostgreSQL для тестов.
+# 3. Устанавливает Python и зависимости проекта.
+# 4. Устанавливает браузеры для E2E-тестов (Playwright).
+# 5. Применяет миграции к тестовой базе данных.
+# 6. Запускает все тесты (юнит-тесты и E2E).
+
 name: Flask Blog CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    name: Build and Run Tests
 
+    # Сервис с базой данных, который будет доступен для тестов
     services:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
         ports:
           - 5432:5432
+        # Опция для проверки готовности базы данных перед запуском тестов
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
+    # Переменные окружения, которые будут доступны во всех шагах
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-      SECRET_KEY: test_key
+      DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+      SECRET_KEY: a_very_secret_key_for_testing
+      # Флаг для pytest-flask, чтобы он мог запустить live_server
+      PYTEST_ADDOPTS: --log-cli-level=INFO
 
     steps:
-      - uses: actions/checkout@v3
+      # 1. Получение кода из репозитория
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      # 2. Настройка Python
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
+      # 3. Установка зависимостей проекта
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Wait for Postgres
+      # 4. Установка браузеров для E2E-тестов (Playwright)
+      #    Этот шаг необходим, чтобы E2E-тесты могли запускать реальный браузер.
+      - name: Install Playwright Browsers
         run: |
-          until pg_isready -h localhost -U postgres; do
-            echo "Waiting for Postgres..."; sleep 2;
-          done
+          python -m playwright install --with-deps
 
+      # 5. Применение миграций к тестовой базе данных
+      #    Убеждаемся, что схема БД актуальна перед запуском тестов.
       - name: Run DB migrations
         run: flask db upgrade
 
-      - name: Run tests 
+      # 6. Запуск всех тестов
+      #    Pytest автоматически обнаружит и запустит все тесты в папке 'tests/'.
+      #    Это включает как test_basic.py, так и новый test_e2e.py.
+      - name: Run tests (Unit and E2E)
         run: pytest
