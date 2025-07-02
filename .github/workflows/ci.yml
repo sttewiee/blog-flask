@@ -1,4 +1,8 @@
 # .github/workflows/ci.yml
+#
+# CI-пайплайн для автоматического тестирования проекта
+# при каждом push или pull request в ветку 'main'.
+
 name: Flask Blog CI
 
 on:
@@ -9,49 +13,61 @@ on:
 
 jobs:
   build-and-test:
+    # Запускаем на последней версии Ubuntu, предоставляемой GitHub
     runs-on: ubuntu-latest
     name: Build and Run Tests
 
-    # Сервис с базой данных, который будет доступен для тестов
+    # Поднимаем сервис с PostgreSQL, который будет доступен для тестов
     services:
       postgres:
         image: postgres:15
-        # Учетные данные для базы данных в CI
+        # Учетные данные для тестовой базы данных в CI
         env:
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpassword
           POSTGRES_DB: testdb
         ports:
           - 5432:5432
+        # Проверяем готовность базы данных перед тем, как запускать тесты
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
-    # Переменные окружения, которые будут доступны во всех шагах
+    # Переменные окружения, которые будут доступны во всех шагах этого job
     env:
-      # ЭТА ПЕРЕМЕННАЯ БУДЕТ АВТОМАТИЧЕСКИ ПОДХВАЧЕНА В conftest.py
+      # Эта переменная будет автоматически подхвачена в conftest.py
       DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
-      FLASK_ENV: test # Просто для ясности, хотя conftest.py его тоже устанавливает
+      FLASK_ENV: test
 
     steps:
+      # 1. Загрузка кода из репозитория
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2. Настройка окружения Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
+      # 3. Установка Python-зависимостей проекта
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install Playwright system dependencies
-        run: python -m playwright install-deps --with-deps
+      # 4. Установка браузера Firefox для Playwright
+      - name: Install Playwright Browser
+        run: python -m playwright install firefox
 
-      # Шаги для создания .env.test и миграций БОЛЬШЕ НЕ НУЖНЫ,
-      # так как conftest.py делает всю работу по настройке приложения и БД.
+      # 5. Установка СИСТЕМНЫХ зависимостей для Playwright
+      #    Используем `python -m` чтобы найти playwright, установленный через pip,
+      #    и `sudo` чтобы дать ему права на установку пакетов через apt-get.
+      - name: Install Playwright System Dependencies
+        run: sudo python -m playwright install-deps firefox
 
+      # 6. Запуск тестов
+      #    Pytest автоматически найдет conftest.py и все тестовые файлы.
+      #    - conftest.py создаст приложение и настроит базу данных.
+      #    - Мы запускаем тесты только на Firefox, так как он более стабилен в CI.
       - name: Run tests
-        # Запускаем E2E тесты на Firefox, так как он более стабилен в CI-окружении
         run: pytest --browser firefox
