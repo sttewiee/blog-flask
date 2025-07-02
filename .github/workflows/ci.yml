@@ -47,7 +47,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Playwright system dependencies
-        run: sudo playwright install-deps
+        run: python -m playwright install-deps --with-deps
 
       # Шаги для создания .env.test и миграций БОЛЬШЕ НЕ НУЖНЫ,
       # так как conftest.py делает всю работу по настройке приложения и БД.
