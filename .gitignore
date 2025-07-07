@@ -67,3 +67,13 @@ build/
 # Файлы Docker, которые не должны быть в репозитории
 .dockerignore
 docker-compose.override.yml
+# Папки и файлы Certbot
+# Содержат приватные ключи и сертификаты!
+blog-flask-prod/certbot/
+
+# Файлы Terraform
+# Содержат состояние инфраструктуры и плагины
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
