@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-# Финальная версия. Обходит баг docker-compose и решает проблему первого запуска.
+# Финальная, упрощенная и надежная версия.
 
 name: Build, Push and Deploy
 
@@ -45,18 +45,9 @@ jobs:
           script: |
             set -e 
             export PROJECT_DIR="/home/${{ secrets.PROD_SERVER_USER }}/blog-flask"
-            export PROD_DIR="$PROJECT_DIR/blog-flask-prod"
-            
-            if [ ! -d "$PROJECT_DIR" ]; then
-              echo "✅ Cloning repository..."
-              git clone https://github.com/sttewiee/blog-flask.git "$PROJECT_DIR"
-            else
-              echo "✅ Updating repository..."
-              cd "$PROJECT_DIR"
-              git pull
-            fi
-            
-            cd "$PROD_DIR"
+            cd "$PROJECT_DIR"
+            git pull
+            cd "$PROJECT_DIR/blog-flask-prod"
 
             echo "✅ Creating/updating .env file..."
             cat <<EOF > .env
@@ -73,25 +64,20 @@ jobs:
             echo "✅ Pulling latest Docker images..."
             sudo docker-compose -f docker-compose.prod.yml pull
 
-            # --- Обход бага 'KeyError: ContainerConfig' ---
             echo "♻️ Stopping and removing old containers to prevent bugs..."
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
 
-            # --- Финальный запуск ---
             echo "������ Starting all services..."
             sudo docker-compose -f docker-compose.prod.yml up -d
 
-            # --- Получение/обновление SSL-сертификата ---
-            echo "⏳ Checking SSL certificate..."
-            # Эта команда получит сертификат, если его нет, или обновит, если он есть.
-            sudo docker-compose -f docker-compose.prod.yml run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d "${{ secrets.PROD_DOMAIN }}" --email "${{ secrets.PROD_EMAIL }}" --agree-tos --no-eff-email --quiet --keep-until-expiring
+            echo "⏳ Checking/Renewing SSL certificate..."
+            sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
 
-            # Перезапускаем Nginx, чтобы он подхватил только что полученный/обновленный сертификат
+            echo "♻️ Restarting Nginx to apply SSL certificate..."
             sudo docker-compose -f docker-compose.prod.yml restart nginx
 
-            # --- Миграции ---
             echo "⏳ Applying database migrations..."
-            sleep 10 # Небольшая задержка для стабилизации
+            sleep 10
             sudo docker-compose -f docker-compose.prod.yml exec web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
