@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-# Финальная, рабочая, проверенная версия. С умным ожиданием готовности БД.
+# Финальная версия. Используем абсолютный путь к Docker для решения проблем с PATH в SSH.
 
 name: Build, Push and Deploy
 
@@ -77,10 +77,10 @@ jobs:
 
             # --- Скачивание образов ---
             echo "✅ Pulling latest Docker images..."
-            sudo docker-compose -f docker-compose.prod.yml pull
+            sudo /usr/bin/docker compose -f docker-compose.prod.yml pull
 
             # --- Логика SSL ---
-            if ! sudo docker-compose -f docker-compose.prod.yml run --rm --entrypoint "[ -d $CERT_DIR ]" certbot; then
+            if ! sudo /usr/bin/docker compose -f docker-compose.prod.yml run --rm --entrypoint "[ -d $CERT_DIR ]" certbot; then
               echo "������ SSL certificate not found. Performing initial setup..."
               
               if [ -f "./nginx/nginx.conf" ]; then
@@ -89,12 +89,12 @@ jobs:
               
               echo 'events {} http { server { listen 80; server_name ${{ secrets.PROD_DOMAIN }}; location /.well-known/acme-challenge/ { root /var/www/certbot; } } }' > ./nginx/nginx.conf
 
-              sudo docker-compose -f docker-compose.prod.yml up -d nginx
+              sudo /usr/bin/docker compose -f docker-compose.prod.yml up -d nginx
 
               echo "⏳ Obtaining certificate..."
-              sudo docker-compose -f docker-compose.prod.yml run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d "${{ secrets.PROD_DOMAIN }}" --email "${{ secrets.PROD_EMAIL }}" --agree-tos --no-eff-email --quiet
+              sudo /usr/bin/docker compose -f docker-compose.prod.yml run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d "${{ secrets.PROD_DOMAIN }}" --email "${{ secrets.PROD_EMAIL }}" --agree-tos --no-eff-email --quiet
 
-              sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
+              sudo /usr/bin/docker compose -f docker-compose.prod.yml down --remove-orphans
               
               mv ./nginx/nginx.conf.bak ./nginx/nginx.conf
             else
@@ -103,21 +103,20 @@ jobs:
 
             # --- Финальный запуск ---
             echo "������ Starting all services..."
-            sudo docker-compose -f docker-compose.prod.yml up -d
+            sudo /usr/bin/docker compose -f docker-compose.prod.yml up -d
 
-            # --- УМНОЕ ОЖИДАНИЕ И МИГРАЦИЯ ---
+            # --- Миграции ---
             echo "⏳ Waiting for database to be ready..."
-            # Цикл, который пытается выполнить команду 'pg_isready' внутри контейнера db
-            until sudo docker-compose -f docker-compose.prod.yml exec db pg_isready --username=${{ secrets.PROD_DB_USER }} --quiet; do
+            until sudo /usr/bin/docker compose -f docker-compose.prod.yml exec db pg_isready --username=${{ secrets.PROD_DB_USER }} --quiet; do
                 echo "Database is unavailable - sleeping"
                 sleep 2
             done
             
             echo "✅ Database is ready! Applying migrations..."
-            sudo docker-compose -f docker-compose.prod.yml exec web flask db upgrade
+            sudo /usr/bin/docker compose -f docker-compose.prod.yml exec web flask db upgrade
             
             # --- Обновление сертификата ---
             echo "Ensuring certificate is fresh..."
-            sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
+            sudo /usr/bin/docker compose -f docker-compose.prod.yml run --rm certbot renew
 
             echo "������ Deployment to production completed successfully!"
