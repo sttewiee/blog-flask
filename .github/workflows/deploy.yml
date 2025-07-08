@@ -46,6 +46,7 @@ jobs:
           username: ${{ secrets.PROD_SERVER_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
+            set -e 
             # --- ШАГ 0: Подготовка переменных ---
             export PROJECT_DIR="/home/${{ secrets.PROD_SERVER_USER }}/blog-flask"
             export PROD_DIR="$PROJECT_DIR/blog-flask-prod"
