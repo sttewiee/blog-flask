@@ -34,7 +34,18 @@ services:
       - blog-network
     depends_on:
       - web
+# blog-flask-prod/docker-compose.prod.yml
 
+# ... сервисы db, web, nginx ...
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+
+networks:
+  # ...
 
 networks:
   blog-network:

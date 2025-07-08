@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-# Финальная, победная версия. Обходит баг docker-compose и решает проблему первого запуска.
+# Финальная версия. Обходит баг docker-compose и решает проблему первого запуска.
 
 name: Build, Push and Deploy
 
@@ -43,16 +43,12 @@ jobs:
           username: ${{ secrets.PROD_SERVER_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            set -e # Прерывать выполнение при любой ошибке
-
-            # --- Подготовка ---
+            set -e 
             export PROJECT_DIR="/home/${{ secrets.PROD_SERVER_USER }}/blog-flask"
             export PROD_DIR="$PROJECT_DIR/blog-flask-prod"
-            export CERT_DIR="/etc/letsencrypt/live/${{ secrets.PROD_DOMAIN }}"
             
-            # --- Клонирование или обновление ---
             if [ ! -d "$PROJECT_DIR" ]; then
-              echo "✅ Cloning repository for the first time..."
+              echo "✅ Cloning repository..."
               git clone https://github.com/sttewiee/blog-flask.git "$PROJECT_DIR"
             else
               echo "✅ Updating repository..."
@@ -62,7 +58,6 @@ jobs:
             
             cd "$PROD_DIR"
 
-            # --- Создание .env ---
             echo "✅ Creating/updating .env file..."
             cat <<EOF > .env
             POSTGRES_USER=${{ secrets.PROD_DB_USER }}
@@ -75,31 +70,8 @@ jobs:
             EMAIL=${{ secrets.PROD_EMAIL }}
             EOF
 
-            # --- Скачивание образов ---
             echo "✅ Pulling latest Docker images..."
             sudo docker-compose -f docker-compose.prod.yml pull
-
-            # --- Логика SSL для первого запуска ---
-            if ! sudo docker-compose -f docker-compose.prod.yml run --rm --entrypoint "[ -d $CERT_DIR ]" certbot; then
-              echo "������ SSL certificate not found. Performing initial setup..."
-              
-              if [ -f "./nginx/nginx.conf" ]; then
-                mv ./nginx/nginx.conf ./nginx/nginx.conf.bak
-              fi
-              
-              echo 'events {} http { server { listen 80; server_name ${{ secrets.PROD_DOMAIN }}; location /.well-known/acme-challenge/ { root /var/www/certbot; } } }' > ./nginx/nginx.conf
-
-              sudo docker-compose -f docker-compose.prod.yml up -d nginx
-
-              echo "⏳ Obtaining certificate..."
-              sudo docker-compose -f docker-compose.prod.yml run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d "${{ secrets.PROD_DOMAIN }}" --email "${{ secrets.PROD_EMAIL }}" --agree-tos --no-eff-email --quiet
-
-              sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
-              
-              mv ./nginx/nginx.conf.bak ./nginx/nginx.conf
-            else
-              echo "✅ SSL certificate already exists. Skipping initial setup."
-            fi
 
             # --- Обход бага 'KeyError: ContainerConfig' ---
             echo "♻️ Stopping and removing old containers to prevent bugs..."
@@ -109,14 +81,17 @@ jobs:
             echo "������ Starting all services..."
             sudo docker-compose -f docker-compose.prod.yml up -d
 
-            # --- Умное ожидание и миграция ---
-            echo "⏳ Waiting for database to be ready..."
-            until sudo docker-compose -f docker-compose.prod.yml exec db pg_isready --username=${{ secrets.PROD_DB_USER }} --quiet; do
-                echo "Database is unavailable - sleeping"
-                sleep 2
-            done
-            
-            echo "✅ Database is ready! Applying migrations..."
+            # --- Получение/обновление SSL-сертификата ---
+            echo "⏳ Checking SSL certificate..."
+            # Эта команда получит сертификат, если его нет, или обновит, если он есть.
+            sudo docker-compose -f docker-compose.prod.yml run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d "${{ secrets.PROD_DOMAIN }}" --email "${{ secrets.PROD_EMAIL }}" --agree-tos --no-eff-email --quiet --keep-until-expiring
+
+            # Перезапускаем Nginx, чтобы он подхватил только что полученный/обновленный сертификат
+            sudo docker-compose -f docker-compose.prod.yml restart nginx
+
+            # --- Миграции ---
+            echo "⏳ Applying database migrations..."
+            sleep 10 # Небольшая задержка для стабилизации
             sudo docker-compose -f docker-compose.prod.yml exec web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
