@@ -112,7 +112,7 @@ jobs:
             # --- ШАГ 6: Применение миграций базы данных ---
             echo "⏳ Applying database migrations..."
             # Даем базе немного времени на запуск после up -d
-            sleep 10
+            sleep 20
             docker-compose -f docker-compose.prod.yml exec web flask db upgrade
             
             # --- ШАГ 7: Обновление сертификата (если он уже был) ---
