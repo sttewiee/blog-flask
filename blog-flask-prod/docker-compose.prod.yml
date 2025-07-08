@@ -1,21 +1,20 @@
 # /home/gcpa4607/blog-flask/blog-flask-prod/docker-compose.prod.yml
 # Финальная, рабочая версия для продакшена
 
-# Атрибут "version" устарел, поэтому убираем его, как советует Docker
 services:
   db:
     image: postgres:15
     restart: always
-    env_file: .env # Указываем, что переменные для DB берутся из .env
+    env_file: .env
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
       - blog-network
 
   web:
-    image: sttewie/flask-blog:latest # Ваш образ из Docker Hub
+    image: sttewiee/flask-blog:latest
     restart: always
-    env_file: .env # Указываем, что переменные для Web берутся из .env
+    env_file: .env
     depends_on:
       - db
     networks:
@@ -38,7 +37,6 @@ services:
 
   certbot:
     image: certbot/certbot
-    # У сервиса certbot нет своей конфигурации, кроме томов
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
