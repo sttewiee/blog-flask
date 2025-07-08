@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-# Финальная версия, использующая 'sudo docker compose' для решения проблем с правами.
+# Финальная, синтаксически проверенная версия.
 
 name: Build, Push and Deploy
 
@@ -29,7 +29,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: sttewie/flask-blog:latest # Убедись, что имя пользователя правильное
+          tags: sttewie/flask-blog:latest
 
   # Этап автоматического развертывания
   deploy-to-prod:
@@ -117,6 +117,4 @@ jobs:
             echo "Ensuring certificate is fresh..."
             sudo docker compose -f docker-compose.prod.yml run --rm certbot renew
 
-            echo "������ Deployment to production completed successfully!"```
-
-Еще раз прошу прощения за этот сбой. После обновления файла в репозитории и запуска пайплайна, он должен отработать корректно.
+            echo "������ Deployment to production completed successfully!"
