@@ -12,7 +12,7 @@ services:
       - blog-network
 
   web:
-    image: sttewiee/flask-blog:latest
+    image: sttewie/flask-blog:latest
     restart: always
     env_file: .env
     depends_on:
