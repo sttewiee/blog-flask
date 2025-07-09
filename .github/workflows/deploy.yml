@@ -1,6 +1,4 @@
 # .github/workflows/deploy.yml
-# Финальная, самая простая и надежная версия. Возвращаемся к sleep.
-
 name: Build, Push and Deploy
 
 on:
@@ -15,13 +13,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -45,8 +41,17 @@ jobs:
           script: |
             set -e 
             export PROJECT_DIR="/home/${{ secrets.PROD_SERVER_USER }}/blog-flask"
-            cd "$PROJECT_DIR"
-            git pull
+            
+            # --- Клонирование или обновление ---
+            if [ ! -d "$PROJECT_DIR" ]; then
+              echo "✅ Cloning repository for the first time..."
+              git clone https://github.com/sttewiee/blog-flask.git "$PROJECT_DIR"
+            else
+              echo "✅ Updating repository..."
+              cd "$PROJECT_DIR"
+              git pull
+            fi
+            
             cd "$PROJECT_DIR/blog-flask-prod"
 
             echo "✅ Creating/updating .env file..."
@@ -71,7 +76,8 @@ jobs:
             sudo docker-compose -f docker-compose.prod.yml up -d
 
             echo "⏳ Checking/Renewing SSL certificate..."
-            sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
+            # --force-reinstall не используется, certbot сам решит
+            sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew --quiet
 
             echo "♻️ Restarting Nginx to apply SSL certificate..."
             sudo docker-compose -f docker-compose.prod.yml restart nginx
