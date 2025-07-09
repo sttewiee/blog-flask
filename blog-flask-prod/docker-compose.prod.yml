@@ -1,5 +1,4 @@
-# /home/gcpa4607/blog-flask/blog-flask-prod/docker-compose.prod.yml
-# Финальная, рабочая версия.
+version: "3.8"
 
 services:
   db:
@@ -37,10 +36,12 @@ services:
 
   certbot:
     image: certbot/certbot
-    command: /bin/true  # Эта строка не дает контейнеру "зависнуть"
+    command: certonly --webroot --webroot-path=/var/www/certbot -d "lapikoff.duckdns.org" --email "your_email@example.com" --agree-tos --no-eff-email --quiet
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
+    networks:
+      - blog-network
 
 networks:
   blog-network:
