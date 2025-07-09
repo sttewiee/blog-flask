@@ -79,9 +79,10 @@ jobs:
             
             if [ ! -d "$CERT_DIR_PATH" ]; then
               echo "⚠️ No certificate found. Creating a dummy certificate for initial Nginx start..."
-              # Создаем все нужные директории
-              mkdir -p "$PROD_DIR/certbot/conf/live/$DOMAIN" "$PROD_DIR/certbot/www"
-              # Генерируем самоподписанный сертификат, ЯВНО УКАЗАВ entrypoint
+              # Создаем все нужные директории С ПРАВАМИ СУПЕРПОЛЬЗОВАТЕЛЯ
+              sudo mkdir -p "$PROD_DIR/certbot/conf/live/$DOMAIN" "$PROD_DIR/certbot/www"
+              
+              # Генерируем самоподписанный сертификат
               sudo docker run --rm \
                 --entrypoint "openssl" \
                 -v "$PROD_DIR/certbot/conf:/etc/letsencrypt" \
