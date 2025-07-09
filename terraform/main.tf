@@ -7,13 +7,34 @@ resource "google_compute_address" "static_ip" {
   region  = var.region
 }
 
-# 2. Создаем виртуальную машину
+# 2. НОВЫЙ РЕСУРС: Правило Firewall для разрешения SSH
+# Это правило разрешает входящий трафик на порт 22 с любого IP-адреса
+# для всех виртуальных машин с тегом "ssh-server".
+# Это необходимо, чтобы GitHub Actions мог подключиться к серверу для деплоя.
+resource "google_compute_firewall" "allow_ssh" {
+  project = var.project_id
+  name    = "allow-ssh-from-anywhere"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["ssh-server"]
+}
+
+
+# 3. Создаем виртуальную машину
 resource "google_compute_instance" "blog_server" {
   project      = var.project_id
   zone         = var.zone
   name         = "blog-flask-server-terraform"
   machine_type = "e2-micro"
-  tags         = ["http-server", "httpss-server"]
+  
+  # ИЗМЕНЕНИЕ: Добавляем тег "ssh-server", чтобы применить правило Firewall
+  tags         = ["http-server", "httpss-server", "ssh-server"]
 
   boot_disk {
     initialize_params {
@@ -28,8 +49,7 @@ resource "google_compute_instance" "blog_server" {
     }
   }
 
-  # --- ИСПРАВЛЕННЫЙ БЛОК PROVISIONER ---
-  # Блок connection вынесен на один уровень с provisioner
+  # Блок connection для provisioner'а
   connection {
     type        = "ssh"
     user        = "gcpa4607" # <-- Ваше имя пользователя
@@ -37,18 +57,19 @@ resource "google_compute_instance" "blog_server" {
     host        = self.network_interface[0].access_config[0].nat_ip
   }
 
+  # Provisioner для первоначальной настройки сервера
   provisioner "remote-exec" {
     inline = [
-      "sleep 20",
+      "sleep 20", # Даем время на инициализацию системы после загрузки
       "sudo apt-get update",
       "sudo apt-get install -y docker.io docker-compose git",
-      # Жестко прописываем ваше имя пользователя
+      # Добавляем пользователя в группу docker, чтобы не использовать sudo для Docker
       "sudo usermod -aG docker gcpa4607",
     ]
   }
 }
 
-# 3. Обновляем DNS с помощью нашего Python-скрипта
+# 4. Обновляем DNS с помощью нашего Python-скрипта
 resource "null_resource" "update_dns_via_python" {
   depends_on = [google_compute_address.static_ip]
 
@@ -62,7 +83,7 @@ resource "null_resource" "update_dns_via_python" {
   }
 }
 
-# 4. Выводим постоянный IP-адрес в консоль
+# 5. Выводим постоянный IP-адрес в консоль
 output "static_instance_ip" {
   description = "The static external IP address of the VM instance"
   value       = google_compute_address.static_ip.address
