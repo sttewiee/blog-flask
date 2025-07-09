@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-# Финальная, упрощенная версия. Доверяем "умному" контейнеру.
+# Финальная, рабочая, проверенная версия. С надежным ожиданием БД.
 
 name: Build, Push and Deploy
 
@@ -61,16 +61,27 @@ jobs:
             echo "✅ Pulling latest Docker images..."
             sudo docker-compose -f docker-compose.prod.yml pull
 
-            echo "♻️ Stopping and removing old containers..."
+            echo "♻️ Stopping and removing old containers to prevent bugs..."
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
 
-            echo "������ Starting all services... (Container will wait for DB and migrate itself)"
+            echo "������ Starting all services..."
             sudo docker-compose -f docker-compose.prod.yml up -d
 
-            echo "✅ Checking/Renewing SSL certificate..."
+            echo "⏳ Checking/Renewing SSL certificate..."
             sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
 
             echo "♻️ Restarting Nginx to apply SSL certificate..."
             sudo docker-compose -f docker-compose.prod.yml restart nginx
+
+            # --- УМНОЕ ОЖИДАНИЕ И МИГРАЦИЯ ---
+            echo "⏳ Waiting for database to be ready..."
+            # Цикл, который пытается выполнить команду 'pg_isready' внутри контейнера db
+            until sudo docker-compose -f docker-compose.prod.yml exec db pg_isready --username=${{ secrets.PROD_DB_USER }} --quiet; do
+                echo "Database is unavailable - sleeping"
+                sleep 2
+            done
+            
+            echo "✅ Database is ready! Applying migrations..."
+            sudo docker-compose -f docker-compose.prod.yml exec web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
