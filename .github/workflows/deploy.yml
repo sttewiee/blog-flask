@@ -67,19 +67,17 @@ jobs:
 
             # Этап 1: Получение сертификата, если его нет
             if [ ! -f "$PROD_DIR/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
-              echo "⚠️ No certificate found. Obtaining one for the first time..."
-              # Убедимся, что ничего лишнего не запущено
+              echo "⚠️ No certificate found. Obtaining a test one..."
               sudo docker-compose -f docker-compose.prod.yml down --remove-orphans || true
               
-              # Запускаем временные контейнеры из init-файлов
               sudo docker-compose -f docker-compose.init.yml up -d
               
-              # Запрашиваем сертификат (убрал --staging, т.к. лимиты должны были сняться)
+              # ВОЗВРАЩАЕМ --staging, ЧТОБЫ ОБЕЗОПАСИТЬСЯ ОТ ЛИМИТОВ
               sudo docker-compose -f docker-compose.init.yml run --rm certbot certonly \
+                --staging \
                 --webroot --webroot-path=/var/www/certbot \
                 -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email --non-interactive
               
-              # Останавливаем и удаляем временные контейнеры
               sudo docker-compose -f docker-compose.init.yml down
             fi
 
