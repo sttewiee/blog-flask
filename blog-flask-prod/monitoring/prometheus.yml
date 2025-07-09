@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s # —обирать метрики каждые 15 секунд
+
+scrape_configs:
+  - job_name: 'cadvisor'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['cadvisor:8080'] # ”казываем Prometheus опрашивать cAdvisor
