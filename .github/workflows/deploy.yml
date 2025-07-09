@@ -33,7 +33,6 @@ jobs:
     name: Deploy to Production Server
 
     steps:
-      # Добавляем задержку перед подключением по SSH, чтобы DNS успел обновиться
       - name: Wait for DNS propagation
         run: |
           echo "Waiting 60 seconds for DNS to propagate..."
@@ -80,21 +79,14 @@ jobs:
             EOF
 
             # --- Инициализация SSL для первого запуска ---
-            echo "������ Initializing SSL certificates..."
-            CERT_DIR_PATH="$PROD_DIR/certbot/conf/live/$DOMAIN"
-            
-            if [ ! -d "$CERT_DIR_PATH" ]; then
+            if [ ! -d "$PROD_DIR/certbot/conf/live/$DOMAIN" ]; then
               echo "⚠️ No certificate found. Creating a dummy certificate for initial Nginx start..."
               sudo mkdir -p "$PROD_DIR/certbot/conf/live/$DOMAIN" "$PROD_DIR/certbot/www"
-              sudo docker run --rm \
-                --entrypoint "openssl" \
-                -v "$PROD_DIR/certbot/conf:/etc/letsencrypt" \
-                certbot/certbot:latest \
-                req -x509 -nodes -newkey rsa:2048 -days 1 \
-                  -keyout "/etc/letsencrypt/live/$DOMAIN/privkey.pem" \
-                  -out "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
-                  -subj "/CN=localhost"
-              echo "✅ Dummy certificate created."
+              sudo docker run --rm --entrypoint "openssl" -v "$PROD_DIR/certbot/conf:/etc/letsencrypt" \
+                certbot/certbot:latest req -x509 -nodes -newkey rsa:2048 -days 1 \
+                -keyout "/etc/letsencrypt/live/$DOMAIN/privkey.pem" \
+                -out "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
+                -subj "/CN=localhost"
             fi
 
             # --- Скачивание образов и запуск системы ---
@@ -105,25 +97,23 @@ jobs:
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
             
             echo "������ Starting main services..."
-            # ЗАПУСКАЕМ ТОЛЬКО ПОСТОЯННЫЕ СЕРВИСЫ
             sudo docker-compose -f docker-compose.prod.yml up -d nginx web db
 
             # --- Запрос настоящего SSL-сертификата ---
             echo "⏳ Requesting Let's Encrypt certificate..."
-            # Эта команда теперь не будет конфликтовать
+            # УБИРАЕМ --force-renewal, чтобы избежать создания папки -0001
             sudo docker-compose -f docker-compose.prod.yml run --rm certbot certonly \
               --webroot --webroot-path=/var/www/certbot \
-              -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email \
-              --force-renewal
+              -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email
 
-            # --- Перезагружаем Nginx, чтобы он подхватил НАСТОЯЩИЙ сертификат ---
+            # --- Перезагружаем Nginx ---
             echo " Reloading Nginx to apply the new certificate..."
-            sudo docker-compose -f docker-compose.prod.yml exec nginx nginx -s reload
+            # ДОБАВЛЯЕМ -T для неинтерактивного режима
+            sudo docker-compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
 
             # --- Миграции ---
             echo "⏳ Applying database migrations..."
-            # УВЕЛИЧИВАЕМ ЗАДЕРЖКУ ДЛЯ СТАБИЛИЗАЦИИ БАЗЫ ДАННЫХ
             sleep 20 
-            sudo docker-compose -f docker-compose.prod.yml exec web flask db upgrade
+            sudo docker-compose -f docker-compose.prod.yml exec -T web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
