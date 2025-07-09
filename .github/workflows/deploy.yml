@@ -31,9 +31,7 @@ jobs:
     name: Deploy to Production Server
     steps:
       - name: Wait for DNS propagation
-        run: |
-          echo "Waiting 60 seconds for DNS to propagate..."
-          sleep 60
+        run: sleep 60
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -49,10 +47,8 @@ jobs:
             export EMAIL="${{ secrets.PROD_EMAIL }}"
             
             if [ ! -d "$PROJECT_DIR" ]; then
-              echo "✅ Cloning repository for the first time..."
               git clone https://github.com/sttewiee/blog-flask.git "$PROJECT_DIR"
             else
-              echo "✅ Updating existing repository..."
               cd "$PROJECT_DIR"; git pull
             fi
             
@@ -69,40 +65,32 @@ jobs:
             EMAIL=${{ secrets.PROD_EMAIL }}
             EOF
 
-            DUMMY_CERT_CREATED=0
+            # Этап 1: Получение сертификата, если его нет
             if [ ! -f "$PROD_DIR/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
-              echo "⚠️ No valid certificate found. Creating a dummy one for initial Nginx start..."
-              sudo mkdir -p "$PROD_DIR/certbot/conf/live/$DOMAIN" "$PROD_DIR/certbot/www"
-              sudo docker run --rm --entrypoint "openssl" -v "$PROD_DIR/certbot/conf:/etc/letsencrypt" \
-                certbot/certbot:latest req -x509 -nodes -newkey rsa:2048 -days 1 \
-                -keyout "/etc/letsencrypt/live/$DOMAIN/privkey.pem" \
-                -out "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
-                -subj "/CN=localhost"
-              DUMMY_CERT_CREATED=1
-            fi
-
-            echo "������ Starting main services..."
-            sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
-            # ---- ГЛАВНЫЙ ФИКС: ЗАПУСКАЕМ ТОЛЬКО ТО, ЧТО НУЖНО ---
-            sudo docker-compose -f docker-compose.prod.yml up -d db web nginx
-
-            if [ "$DUMMY_CERT_CREATED" -eq "1" ]; then
-              echo "♻️ Replacing dummy certificate with a real one..."
-              sudo rm -rf "$PROD_DIR/certbot/conf/live/$DOMAIN"
-              # Используем --staging для теста, чтобы не упереться в лимиты
-              sudo docker-compose -f docker-compose.prod.yml run --rm certbot certonly \
-                --staging \
+              echo "⚠️ No certificate found. Obtaining one for the first time..."
+              # Убедимся, что ничего лишнего не запущено
+              sudo docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+              
+              # Запускаем временные контейнеры из init-файлов
+              sudo docker-compose -f docker-compose.init.yml up -d
+              
+              # Запрашиваем сертификат (убрал --staging, т.к. лимиты должны были сняться)
+              sudo docker-compose -f docker-compose.init.yml run --rm certbot certonly \
                 --webroot --webroot-path=/var/www/certbot \
                 -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email --non-interactive
-              echo " Reloading Nginx to apply the new certificate..."
-              sudo docker-compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
-            else
-              echo "✅ Certificate is already valid. Renewing if necessary..."
-              sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
+              
+              # Останавливаем и удаляем временные контейнеры
+              sudo docker-compose -f docker-compose.init.yml down
             fi
 
+            # Этап 2: Запуск всей системы в штатном режиме
+            echo "������ Starting all services in production mode..."
+            sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
+            sudo docker-compose -f docker-compose.prod.yml up -d
+
+            # Этап 3: Миграции
             echo "⏳ Applying database migrations..."
-            sleep 20
+            sleep 20 
             sudo docker-compose -f docker-compose.prod.yml exec -T web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
