@@ -7,33 +7,43 @@ resource "google_compute_address" "static_ip" {
   region  = var.region
 }
 
-# 2. НОВЫЙ РЕСУРС: Правило Firewall для разрешения SSH
-# Это правило разрешает входящий трафик на порт 22 с любого IP-адреса
-# для всех виртуальных машин с тегом "ssh-server".
-# Это необходимо, чтобы GitHub Actions мог подключиться к серверу для деплоя.
+# 2. Правило Firewall для разрешения SSH (порт 22)
+# Необходимо, чтобы GitHub Actions мог подключиться к серверу для деплоя.
 resource "google_compute_firewall" "allow_ssh" {
   project = var.project_id
   name    = "allow-ssh-from-anywhere"
   network = "default"
-
   allow {
     protocol = "tcp"
     ports    = ["22"]
   }
-
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["ssh-server"]
 }
 
+# 3. НОВОЕ ПРАВИЛО: Правило Firewall для разрешения HTTP (порт 80)
+# Необходимо, чтобы Let's Encrypt мог проверить домен.
+resource "google_compute_firewall" "allow_http" {
+  project = var.project_id
+  name    = "allow-http-from-anywhere"
+  network = "default"
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
+  }
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["http-server"]
+}
 
-# 3. Создаем виртуальную машину
+
+# 4. Создаем виртуальную машину
 resource "google_compute_instance" "blog_server" {
   project      = var.project_id
   zone         = var.zone
   name         = "blog-flask-server-terraform"
   machine_type = "e2-micro"
   
-  # ИЗМЕНЕНИЕ: Добавляем тег "ssh-server", чтобы применить правило Firewall
+  # Используем теги, чтобы применить к ВМ наши правила Firewall
   tags         = ["http-server", "httpss-server", "ssh-server"]
 
   boot_disk {
@@ -49,30 +59,26 @@ resource "google_compute_instance" "blog_server" {
     }
   }
 
-  # Блок connection для provisioner'а
   connection {
     type        = "ssh"
-    user        = "gcpa4607" # <-- Ваше имя пользователя
+    user        = "gcpa4607"
     private_key = file("~/.ssh/google_compute_engine")
     host        = self.network_interface[0].access_config[0].nat_ip
   }
 
-  # Provisioner для первоначальной настройки сервера
   provisioner "remote-exec" {
     inline = [
-      "sleep 20", # Даем время на инициализацию системы после загрузки
+      "sleep 20",
       "sudo apt-get update",
       "sudo apt-get install -y docker.io docker-compose git",
-      # Добавляем пользователя в группу docker, чтобы не использовать sudo для Docker
       "sudo usermod -aG docker gcpa4607",
     ]
   }
 }
 
-# 4. Обновляем DNS с помощью нашего Python-скрипта
+# 5. Обновляем DNS
 resource "null_resource" "update_dns_via_python" {
   depends_on = [google_compute_address.static_ip]
-
   provisioner "local-exec" {
     command = "python3 ../scripts/update_dns.py"
     environment = {
@@ -83,7 +89,7 @@ resource "null_resource" "update_dns_via_python" {
   }
 }
 
-# 5. Выводим постоянный IP-адрес в консоль
+# 6. Выводим IP-адрес
 output "static_instance_ip" {
   description = "The static external IP address of the VM instance"
   value       = google_compute_address.static_ip.address
