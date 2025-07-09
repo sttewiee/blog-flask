@@ -36,7 +36,7 @@ services:
 
   certbot:
     image: certbot/certbot
-    command: certonly --webroot --webroot-path=/var/www/certbot -d "lapikoff.duckdns.org" --email "your_email@example.com" --agree-tos --no-eff-email --quiet
+    command: certonly --webroot --webroot-path=/var/www/certbot -d "lapikoff.duckdns.org" --email "plapikovv@gmail.com" --agree-tos --no-eff-email --quiet
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
