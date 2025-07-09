@@ -12,13 +12,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -31,13 +29,11 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     name: Deploy to Production Server
-
     steps:
       - name: Wait for DNS propagation
         run: |
-          echo "Waiting 60 seconds for DNS to propagate before connecting..."
+          echo "Waiting 60 seconds for DNS to propagate..."
           sleep 60
-      
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -77,6 +73,10 @@ jobs:
             # --- Этап 1: Получение сертификата, если его нет (с помощью init-файлов) ---
             if [ ! -d "$PROD_DIR/certbot/conf/live/$DOMAIN" ]; then
               echo "⚠️ No certificate found. Obtaining one for the first time..."
+              # Перед запуском временных сервисов, убедимся, что ничего не запущено
+              sudo docker-compose -f docker-compose.init.yml down --remove-orphans || true
+              sudo docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+              
               sudo docker-compose -f docker-compose.init.yml up -d nginx
               
               sudo docker-compose -f docker-compose.init.yml run --rm certbot certonly \
@@ -90,17 +90,20 @@ jobs:
             echo "������ Starting all services in production mode..."
             sudo docker-compose -f docker-compose.prod.yml pull
             
-            # ВОЗВРАЩАЕМ КОМАНДУ DOWN ДЛЯ ОБХОДА БАГА DOCKER-COMPOSE 1.29.2
+            # ВАЖНО: Останавливаем и удаляем ВСЕ старые контейнеры, чтобы избежать бага 'ContainerConfig'
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
+            
+            # ВАЖНО: Запускаем ТОЛЬКО постоянные сервисы, чтобы не было конфликта с certbot
+            sudo docker-compose -f docker-compose.prod.yml up -d db web nginx
 
-            sudo docker-compose -f docker-compose.prod.yml up -d
-
-            # Обновляем сертификат, если нужно (это безопасно для существующих)
+            # --- Обновляем сертификат, если нужно (это безопасно для существующих) ---
             echo " Renewing certificate if needed..."
+            # Эта команда теперь не вызовет конфликта, т.к. постоянный контейнер certbot не запущен
             sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
 
             # --- Миграции ---
             echo "⏳ Applying database migrations..."
+            # Даем время на полную инициализацию БД после запуска
             sleep 20 
             sudo docker-compose -f docker-compose.prod.yml exec -T web flask db upgrade
 
