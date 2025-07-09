@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-# Финальная, рабочая, проверенная версия. С надежным ожиданием БД.
+# Финальная, самая простая и надежная версия. Возвращаемся к sleep.
 
 name: Build, Push and Deploy
 
@@ -15,11 +15,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -32,6 +34,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     name: Deploy to Production Server
+
     steps:
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
@@ -73,15 +76,11 @@ jobs:
             echo "♻️ Restarting Nginx to apply SSL certificate..."
             sudo docker-compose -f docker-compose.prod.yml restart nginx
 
-            # --- УМНОЕ ОЖИДАНИЕ И МИГРАЦИЯ ---
-            echo "⏳ Waiting for database to be ready..."
-            # Цикл, который пытается выполнить команду 'pg_isready' внутри контейнера db
-            until sudo docker-compose -f docker-compose.prod.yml exec db pg_isready --username=${{ secrets.PROD_DB_USER }} --quiet; do
-                echo "Database is unavailable - sleeping"
-                sleep 2
-            done
+            # --- НАДЕЖНОЕ ОЖИДАНИЕ И МИГРАЦИЯ ---
+            echo "⏳ Waiting 30 seconds for services to stabilize..."
+            sleep 30
             
-            echo "✅ Database is ready! Applying migrations..."
+            echo "✅ Applying migrations..."
             sudo docker-compose -f docker-compose.prod.yml exec web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
