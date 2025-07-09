@@ -33,13 +33,11 @@ jobs:
     name: Deploy to Production Server
 
     steps:
-      # ШАГ №1: РЕШАЕМ ПРОБЛЕМУ DNS
       - name: Wait for DNS propagation
         run: |
           echo "Waiting 60 seconds for DNS to propagate before connecting..."
           sleep 60
       
-      # ШАГ №2: ПОДКЛЮЧАЕМСЯ И ЗАПУСКАЕМ НАДЕЖНЫЙ СКРИПТ
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -86,18 +84,19 @@ jobs:
                 -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email --non-interactive
               
               sudo docker-compose -f docker-compose.init.yml down
-            else
-              echo "✅ Certificate found. Skipping initial acquisition."
             fi
 
             # --- Этап 2: Запуск всей системы в штатном режиме ---
             echo "������ Starting all services in production mode..."
             sudo docker-compose -f docker-compose.prod.yml pull
+            
+            # ВОЗВРАЩАЕМ КОМАНДУ DOWN ДЛЯ ОБХОДА БАГА DOCKER-COMPOSE 1.29.2
+            sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
+
             sudo docker-compose -f docker-compose.prod.yml up -d
 
-            # --- Обновляем сертификат, если нужно (это безопасно для существующих) ---
+            # Обновляем сертификат, если нужно (это безопасно для существующих)
             echo " Renewing certificate if needed..."
-            # Команда renew умнее и сама проверит, нужно ли обновление
             sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
 
             # --- Миграции ---
