@@ -79,10 +79,7 @@ jobs:
             
             if [ ! -d "$CERT_DIR_PATH" ]; then
               echo "⚠️ No certificate found. Creating a dummy certificate for initial Nginx start..."
-              # Создаем все нужные директории С ПРАВАМИ СУПЕРПОЛЬЗОВАТЕЛЯ
               sudo mkdir -p "$PROD_DIR/certbot/conf/live/$DOMAIN" "$PROD_DIR/certbot/www"
-              
-              # Генерируем самоподписанный сертификат
               sudo docker run --rm \
                 --entrypoint "openssl" \
                 -v "$PROD_DIR/certbot/conf:/etc/letsencrypt" \
@@ -104,7 +101,8 @@ jobs:
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
             
             echo "������ Starting all services..."
-            sudo docker-compose -f docker-compose.prod.yml up -d
+            # ИЗМЕНЕНИЕ ЗДЕСЬ: ЗАПУСКАЕМ ТОЛЬКО НУЖНЫЕ СЕРВИСЫ
+            sudo docker-compose -f docker-compose.prod.yml up -d nginx web db
 
             # --- Запрос/обновление настоящего SSL-сертификата ---
             echo "⏳ Requesting/Renewing Let's Encrypt certificate..."
