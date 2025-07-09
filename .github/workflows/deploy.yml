@@ -62,7 +62,6 @@ jobs:
             EMAIL=${{ secrets.PROD_EMAIL }}
             EOF
 
-            # Шаг 1: Создаем временный сертификат, если его нет
             if [ ! -d "$PROD_DIR/certbot/conf/live/$DOMAIN" ]; then
               echo "⚠️ No certificate found. Creating a dummy certificate for initial Nginx start..."
               sudo mkdir -p "$PROD_DIR/certbot/conf/live/$DOMAIN" "$PROD_DIR/certbot/www"
@@ -71,25 +70,21 @@ jobs:
                 -keyout "/etc/letsencrypt/live/$DOMAIN/privkey.pem" \
                 -out "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
                 -subj "/CN=localhost"
-              # Устанавливаем флаг, что мы создали временный сертификат
               DUMMY_CERT_CREATED=1 
             fi
 
-            # Шаг 2: Запускаем все сервисы. Nginx запустится с временным или старым сертификатом.
             echo "������ Starting all services..."
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
             sudo docker-compose -f docker-compose.prod.yml up -d
 
-            # Шаг 3: Если мы создавали временный сертификат, удаляем его и получаем настоящий
             if [ "$DUMMY_CERT_CREATED" = "1" ]; then
               echo "♻️ Replacing dummy certificate with a real one from Let's Encrypt..."
-              # Удаляем временный, чтобы освободить место для настоящего
               sudo rm -rf "$PROD_DIR/certbot/conf/live/$DOMAIN"
-              # Получаем настоящий
+              # ДОБАВЛЯЕМ ФЛАГ --staging ДЛЯ ТЕСТИРОВАНИЯ
               sudo docker-compose -f docker-compose.prod.yml run --rm certbot certonly \
+                --staging \
                 --webroot --webroot-path=/var/www/certbot \
                 -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email --non-interactive
-              # Перезагружаем Nginx, чтобы он подхватил настоящий сертификат
               echo " Reloading Nginx to apply the new certificate..."
               sudo docker-compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
             else
@@ -97,7 +92,6 @@ jobs:
               sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
             fi
 
-            # Шаг 4: Применяем миграции
             echo "⏳ Applying database migrations..."
             sleep 15
             sudo docker-compose -f docker-compose.prod.yml exec -T web flask db upgrade
