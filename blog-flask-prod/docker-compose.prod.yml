@@ -39,7 +39,7 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
 
-  # --- НОВЫЕ СЕРВИСЫ МОНИТОРИНГА ---
+  # --- РќРћР’Р«Р• РЎР•Р Р’РРЎР« РњРћРќРРўРћР РРќР“Рђ ---
   prometheus:
     image: prom/prometheus:v2.45.0
     restart: always
@@ -55,7 +55,7 @@ services:
     image: grafana/grafana:9.5.3
     restart: always
     ports:
-      - "3000:3000" # Открываем порт для доступа к дашбордам
+      - "3000:3000" # РћС‚РєСЂС‹РІР°РµРј РїРѕСЂС‚ РґР»СЏ РґРѕСЃС‚СѓРїР° Рє РґР°С€Р±РѕСЂРґР°Рј
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
@@ -80,6 +80,6 @@ networks:
 
 volumes:
   pgdata:
-  # Новые volumes для хранения данных мониторинга
+  # РќРѕРІС‹Рµ volumes РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РґР°РЅРЅС‹С… РјРѕРЅРёС‚РѕСЂРёРЅРіР°
   prometheus_data:
   grafana_data:
