@@ -48,7 +48,14 @@ jobs:
             export DOMAIN="${{ secrets.PROD_DOMAIN }}"
             export EMAIL="${{ secrets.PROD_EMAIL }}"
             
-            cd "$PROJECT_DIR" && git pull
+            if [ ! -d "$PROJECT_DIR" ]; then
+              echo "✅ Cloning repository for the first time..."
+              git clone https://github.com/sttewiee/blog-flask.git "$PROJECT_DIR"
+            else
+              echo "✅ Updating existing repository..."
+              cd "$PROJECT_DIR"; git pull
+            fi
+            
             cd "$PROD_DIR"
 
             cat <<EOF > .env
@@ -62,34 +69,31 @@ jobs:
             EMAIL=${{ secrets.PROD_EMAIL }}
             EOF
 
-            # Шаг 1: Создаем временный сертификат, если его нет
-            if [ ! -d "$PROD_DIR/certbot/conf/live/$DOMAIN" ]; then
-              echo "⚠️ No certificate found. Creating a dummy certificate for initial Nginx start..."
+            DUMMY_CERT_CREATED=0
+            if [ ! -f "$PROD_DIR/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
+              echo "⚠️ No valid certificate found. Creating a dummy one for initial Nginx start..."
               sudo mkdir -p "$PROD_DIR/certbot/conf/live/$DOMAIN" "$PROD_DIR/certbot/www"
               sudo docker run --rm --entrypoint "openssl" -v "$PROD_DIR/certbot/conf:/etc/letsencrypt" \
                 certbot/certbot:latest req -x509 -nodes -newkey rsa:2048 -days 1 \
                 -keyout "/etc/letsencrypt/live/$DOMAIN/privkey.pem" \
                 -out "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" \
                 -subj "/CN=localhost"
-              # Устанавливаем флаг, что мы создали временный сертификат
-              DUMMY_CERT_CREATED=1 
+              DUMMY_CERT_CREATED=1
             fi
 
-            # Шаг 2: Запускаем все сервисы. Nginx запустится с временным или старым сертификатом.
-            echo "������ Starting all services..."
+            echo "������ Starting main services..."
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
-            sudo docker-compose -f docker-compose.prod.yml up -d
+            # ---- ГЛАВНЫЙ ФИКС: ЗАПУСКАЕМ ТОЛЬКО ТО, ЧТО НУЖНО ---
+            sudo docker-compose -f docker-compose.prod.yml up -d db web nginx
 
-            # Шаг 3: Если мы создавали временный сертификат, удаляем его и получаем настоящий
-            if [ "$DUMMY_CERT_CREATED" = "1" ]; then
-              echo "♻️ Replacing dummy certificate with a real one from Let's Encrypt..."
-              # Удаляем временный, чтобы освободить место для настоящего
+            if [ "$DUMMY_CERT_CREATED" -eq "1" ]; then
+              echo "♻️ Replacing dummy certificate with a real one..."
               sudo rm -rf "$PROD_DIR/certbot/conf/live/$DOMAIN"
-              # Получаем настоящий
+              # Используем --staging для теста, чтобы не упереться в лимиты
               sudo docker-compose -f docker-compose.prod.yml run --rm certbot certonly \
+                --staging \
                 --webroot --webroot-path=/var/www/certbot \
                 -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email --non-interactive
-              # Перезагружаем Nginx, чтобы он подхватил настоящий сертификат
               echo " Reloading Nginx to apply the new certificate..."
               sudo docker-compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
             else
@@ -97,9 +101,8 @@ jobs:
               sudo docker-compose -f docker-compose.prod.yml run --rm certbot renew
             fi
 
-            # Шаг 4: Применяем миграции
             echo "⏳ Applying database migrations..."
-            sleep 15
+            sleep 20
             sudo docker-compose -f docker-compose.prod.yml exec -T web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
