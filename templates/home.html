@@ -22,12 +22,12 @@
     <form method="post" class="mb-4">
         <input name="title" class="form-control mb-2" placeholder="Заголовок" required>
         <textarea name="content" class="form-control mb-2" placeholder="Текст" required></textarea>
-        <button class="btn btn-success">Добавить пост</button>
+        <button class="btn btn-success">Добавить постик</button>
         <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary ms-2">Выйти</a>
     </form>
     {% else %}
     <a href="{{ url_for('login') }}" class="btn btn-primary mb-3">Войти!</a>
-    <a href="{{ url_for('register') }}" class="btn btn-outline-secondary mb-3">Регистрация</a>
+    <a href="{{ url_for('register') }}" class="btn btn-outline-secondary mb-3">Регистрация пользователя</a>
     {% endif %}
 
     <h2>Посты:</h2>
