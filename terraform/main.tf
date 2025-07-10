@@ -21,7 +21,7 @@ resource "google_compute_firewall" "allow_ssh" {
   target_tags   = ["ssh-server"]
 }
 
-# 3. НОВОЕ ПРАВИЛО: Правило Firewall для разрешения HTTP (порт 80)
+# 3. Правило Firewall для разрешения HTTP (порт 80)
 # Необходимо, чтобы Let's Encrypt мог проверить домен.
 resource "google_compute_firewall" "allow_http" {
   project = var.project_id
@@ -35,8 +35,21 @@ resource "google_compute_firewall" "allow_http" {
   target_tags   = ["http-server"]
 }
 
+# 4. Правило Firewall для разрешения HTTPS (порт 443)
+# Для использования SSL сертификатов Let's Encrypt.
+resource "google_compute_firewall" "allow_https" {
+  project = var.project_id
+  name    = "allow-https-from-anywhere"
+  network = "default"
+  allow {
+    protocol = "tcp"
+    ports    = ["443"]
+  }
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["https-server"]
+}
 
-# 4. Создаем виртуальную машину
+# 5. Создаем виртуальную машину
 resource "google_compute_instance" "blog_server" {
   project      = var.project_id
   zone         = var.zone
@@ -44,7 +57,7 @@ resource "google_compute_instance" "blog_server" {
   machine_type = "e2-micro"
   
   # Используем теги, чтобы применить к ВМ наши правила Firewall
-  tags         = ["http-server", "httpss-server", "ssh-server"]
+  tags         = ["http-server", "https-server", "ssh-server"]
 
   boot_disk {
     initialize_params {
@@ -62,13 +75,13 @@ resource "google_compute_instance" "blog_server" {
   connection {
     type        = "ssh"
     user        = "gcpa4607"
-    private_key = file("~/.ssh/google_compute_engine")
+    private_key = file("~/.ssh/google_compute_engine")  # Убедитесь, что путь к вашему ключу правильный
     host        = self.network_interface[0].access_config[0].nat_ip
   }
 
   provisioner "remote-exec" {
     inline = [
-      "sleep 20",
+      "sleep 20",  # Даем время на инициализацию машины
       "sudo apt-get update",
       "sudo apt-get install -y docker.io docker-compose git",
       "sudo usermod -aG docker gcpa4607",
@@ -76,7 +89,7 @@ resource "google_compute_instance" "blog_server" {
   }
 }
 
-# 5. Обновляем DNS
+# 6. Обновляем DNS
 resource "null_resource" "update_dns_via_python" {
   depends_on = [google_compute_address.static_ip]
   provisioner "local-exec" {
@@ -89,7 +102,7 @@ resource "null_resource" "update_dns_via_python" {
   }
 }
 
-# 6. Выводим IP-адрес
+# 7. Выводим IP-адрес
 output "static_instance_ip" {
   description = "The static external IP address of the VM instance"
   value       = google_compute_address.static_ip.address
