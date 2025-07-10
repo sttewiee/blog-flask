@@ -47,4 +47,4 @@ networks:
 
 volumes:
   pgdata:
-  certbot_data:  # Новый volume для хранения данных certbot
+  certbot_data:  # РќРѕРІС‹Р№ volume РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РґР°РЅРЅС‹С… certbot
