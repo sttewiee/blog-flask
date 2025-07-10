@@ -18,6 +18,8 @@ services:
       - db
     networks:
       - blog-network
+    ports:
+      - "5000:5000"
 
   nginx:
     image: nginx:1.25-alpine
