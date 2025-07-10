@@ -10,7 +10,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 
 
-# --- МОДЕЛИ (теперь они не зависят от 'app') --------
+# --- МОДЕЛИ (теперь они не зависят от 'app') ---------
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
