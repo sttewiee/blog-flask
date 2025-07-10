@@ -1,3 +1,5 @@
+version: '3'
+
 services:
   db:
     image: postgres:15
@@ -13,18 +15,54 @@ services:
 
   web:
     build: .
-    # Мы закомментировали эту строку, чтобы Docker использовал команду
-    # `CMD` из нашего Dockerfile (которая запускает Gunicorn).
-    # command: flask run --host=0.0.0.0
     environment:
-      FLASK_ENV: development
+      FLASK_ENV: production
       DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
-      SECRET_KEY: dev_key
+      SECRET_KEY: your_secret_key
     ports:
       - "5000:5000"
     depends_on:
       - db
     volumes:
       - .:/app
+
+  # Добавляем сервис cAdvisor для мониторинга контейнеров
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  # Настроим сервис Prometheus
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - /home/gcpa4607/blog-flask/blog-flask-prod/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro  # Используем ваш prometheus.yml
+    networks:
+      - blog-network
+
+  # Сервис для Grafana
+  grafana:
+    image: grafana/grafana:9.5.3
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - blog-network
+    depends_on:
+      - prometheus
+
 volumes:
   pgdata:
+
+networks:
+  blog-network:
+    driver: bridge
