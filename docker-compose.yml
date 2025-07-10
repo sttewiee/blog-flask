@@ -1,6 +1,24 @@
-version: '3'
+version: '3.7'
 
 services:
+  # Flask Web Application
+  web:
+    image: sttewie/flask-blog:latest
+    restart: always
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+      SECRET_KEY: your_secret_key
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    networks:
+      - blog-network
+    volumes:
+      - .:/app
+
+  # PostgreSQL Database
   db:
     image: postgres:15
     restart: always
@@ -10,59 +28,51 @@ services:
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    networks:
+      - blog-network
 
-  web:
-    build: .
-    environment:
-      FLASK_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
-      SECRET_KEY: your_secret_key
-    ports:
-      - "5000:5000"
-    depends_on:
-      - db
-    volumes:
-      - .:/app
-
-  # Добавляем сервис cAdvisor для мониторинга контейнеров
+  # cAdvisor for collecting Docker container metrics
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
     restart: always
-    ports:
-      - "8080:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - blog-network
+    ports:
+      - "8080:8080"  # Порт для сбора метрик
 
-  # Настроим сервис Prometheus
+  # Prometheus for scraping metrics from cAdvisor and Flask
   prometheus:
     image: prom/prometheus:v2.45.0
     restart: always
-    ports:
-      - "9090:9090"
     volumes:
-      - /home/gcpa4607/blog-flask/blog-flask-prod/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro  # Используем ваш prometheus.yml
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml  # Монтируем конфигурацию
+      - prometheus_data:/prometheus  # Для хранения данных Prometheus
     networks:
       - blog-network
+    ports:
+      - "9090:9090"  # Порт для интерфейса Prometheus
 
-  # Сервис для Grafana
+  # Grafana for visualizing metrics
   grafana:
     image: grafana/grafana:9.5.3
     restart: always
     ports:
-      - "3000:3000"
+      - "3000:3000"  # Порт для интерфейса Grafana
     networks:
       - blog-network
     depends_on:
       - prometheus
-
-volumes:
-  pgdata:
+    volumes:
+      - ./monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/default.json  # Монтируем дашборд
 
 networks:
   blog-network:
     driver: bridge
+
+volumes:
+  prometheus_data:
