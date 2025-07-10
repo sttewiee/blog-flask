@@ -91,6 +91,15 @@ jobs:
             EOF
 
             # Этап 1: Получение сертификата, если его нет
+            echo "Checking if Certbot is already running..."
+            if pgrep -x "certbot" > /dev/null; then
+              echo "Certbot is already running, waiting for it to finish..."
+              while pgrep -x "certbot" > /dev/null; do
+                sleep 5
+              done
+              echo "Certbot finished, proceeding with deployment."
+            fi
+
             if [ ! -f "$PROD_DIR/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
               echo "⚠️ No certificate found. Obtaining a test one..."
               sudo docker-compose -f docker-compose.prod.yml down --remove-orphans || true
