@@ -41,12 +41,12 @@ jobs:
             echo "ERROR: could not resolve ${{ secrets.PROD_DOMAIN }}"
             exit 1
           fi
-          echo "server_ip=$IP" >> $GITHUB_ENV
+          echo "server_ip=$IP" >> $GITHUB_ENV  # Записываем IP в GITHUB_ENV
 
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ steps.resolve_host.outputs.server_ip }}
+        with:ы
+          host: ${{ env.server_ip }}  # Используем переменную окружения для IP
           username: ${{ secrets.PROD_SERVER_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           port: 22
