@@ -43,10 +43,18 @@ jobs:
           fi
           echo "server_ip=$IP" >> $GITHUB_ENV  # Записываем IP в GITHUB_ENV
 
+      - name: Verify server is reachable
+        run: |
+          echo "Checking if the server is reachable..."
+          if ! nc -z ${{ env.server_ip }} 22; then
+            echo "ERROR: Unable to reach the server via SSH. Exiting."
+            exit 1
+          fi
+
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ env.server_ip }}  # Используем переменную окружения для IP
+          host: ${{ env.server_ip }}
           username: ${{ secrets.PROD_SERVER_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           port: 22
@@ -58,6 +66,7 @@ jobs:
             export DOMAIN="${{ secrets.PROD_DOMAIN }}"
             export EMAIL="${{ secrets.PROD_EMAIL }}"
 
+            # Проверка и клонирование репозитория
             if [ ! -d "$PROJECT_DIR" ]; then
               git clone https://github.com/sttewiee/blog-flask.git "$PROJECT_DIR"
             else
@@ -77,7 +86,7 @@ jobs:
             EMAIL=${{ secrets.PROD_EMAIL }}
             EOF
 
-            # Этап 1: Получение сертификата, если его нет
+            # Этап 1: Проверка сертификата, если его нет, генерируем
             if [ ! -f "$PROD_DIR/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
               echo "⚠️ No certificate found. Obtaining a test one..."
               sudo docker-compose -f docker-compose.prod.yml down --remove-orphans || true
@@ -89,14 +98,15 @@ jobs:
               sudo docker-compose -f docker-compose.init.yml down
             fi
 
-            # Этап 2: Запуск в production
-            echo "������ Starting all services in production mode..."
+            # Этап 2: Запуск всех сервисов в production
+            echo "Starting all services in production mode..."
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
             sudo docker-compose -f docker-compose.prod.yml up -d
 
-            # Этап 3: Миграции
+            # Этап 3: Применение миграций базы данных
             echo "⏳ Applying database migrations..."
             sleep 20
             sudo docker-compose -f docker-compose.prod.yml exec -T web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
+
