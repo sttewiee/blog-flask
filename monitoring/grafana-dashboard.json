@@ -1,0 +1,36 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{container_label_com_docker_swarm_task_name='blog-flask-web'}[5m])",
+          "legendFormat": "{{container_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Usage of Flask App",
+      "type": "graph"
+    },
+    {
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(container_memory_usage_bytes{container_label_com_docker_swarm_task_name='blog-flask-web'}[5m])",
+          "legendFormat": "{{container_name}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Memory Usage of Flask App",
+      "type": "graph"
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "Blog Monitoring Dashboard"
+}
