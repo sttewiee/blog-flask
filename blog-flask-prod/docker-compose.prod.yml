@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   db:
     image: postgres:15
@@ -18,8 +16,6 @@ services:
       - db
     networks:
       - blog-network
-    ports:
-      - "5000:5000"
 
   nginx:
     image: nginx:1.25-alpine
@@ -43,10 +39,18 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
 
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - blog-network
+
 networks:
   blog-network:
     driver: bridge
 
 volumes:
   pgdata:
-  certbot_data:  # Новый volume для хранения данных certbot
+  certbot_data:
