@@ -1,3 +1,4 @@
+```yaml
 name: Build, Push and Deploy
 
 on:
@@ -12,11 +13,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -30,14 +33,24 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy to Production Server
     steps:
-      - name: Wait for DNS propagation
-        run: sleep 60
+      - name: Resolve PROD_DOMAIN to IP
+        id: resolve_host
+        run: |
+          echo "Resolving ${{ secrets.PROD_DOMAIN }}…"
+          IP=$(dig +short ${{ secrets.PROD_DOMAIN }} | grep -E '^[0-9\.]+$' | head -n1)
+          if [ -z "$IP" ]; then
+            echo "ERROR: could not resolve ${{ secrets.PROD_DOMAIN }}"
+            exit 1
+          fi
+          echo "server_ip=$IP" >> $GITHUB_OUTPUT
+
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.PROD_DOMAIN }}
+          host: ${{ steps.resolve_host.outputs.server_ip }}
           username: ${{ secrets.PROD_SERVER_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
+          key:      ${{ secrets.PROD_SSH_KEY }}
+          port:     22
           script: |
             set -e
 
@@ -72,7 +85,6 @@ jobs:
               
               sudo docker-compose -f docker-compose.init.yml up -d
               
-              # ВОЗВРАЩАЕМ --staging, ЧТОБЫ ОБЕЗОПАСИТЬСЯ ОТ ЛИМИТОВ
               sudo docker-compose -f docker-compose.init.yml run --rm certbot certonly \
                 --staging \
                 --webroot --webroot-path=/var/www/certbot \
@@ -81,14 +93,15 @@ jobs:
               sudo docker-compose -f docker-compose.init.yml down
             fi
 
-            # Этап 2: Запуск всей системы в штатном режиме
+            # Этап 2: Запуск в production
             echo "������ Starting all services in production mode..."
             sudo docker-compose -f docker-compose.prod.yml down --remove-orphans
             sudo docker-compose -f docker-compose.prod.yml up -d
 
             # Этап 3: Миграции
             echo "⏳ Applying database migrations..."
-            sleep 20 
+            sleep 20
             sudo docker-compose -f docker-compose.prod.yml exec -T web flask db upgrade
 
             echo "������ Deployment to production completed successfully!"
+```
