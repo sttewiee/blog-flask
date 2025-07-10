@@ -46,7 +46,7 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
 
-    # --- Регистрируем роуты (Blueprint'ы - лучший способ, но пока так) ---
+    # --- Регистрируем роуты (Blueprint'ы - лучший способ, но пока так) ----
     @app.route('/')
     def home():
         posts = Post.query.order_by(Post.id.desc()).all()
