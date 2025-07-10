@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   db:
     image: postgres:15
@@ -39,47 +41,9 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
 
-  # --- НОВЫЕ СЕРВИСЫ МОНИТОРИНГА ---
-  prometheus:
-    image: prom/prometheus:v2.45.0
-    restart: always
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    networks:
-      - blog-network
-
-  grafana:
-    image: grafana/grafana:9.5.3
-    restart: always
-    ports:
-      - "3000:3000" # Открываем порт для доступа к дашбордам
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks:
-      - blog-network
-    depends_on:
-      - prometheus
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.2
-    restart: always
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    networks:
-      - blog-network
-
 networks:
   blog-network:
     driver: bridge
 
 volumes:
   pgdata:
-  # Новые volumes для хранения данных мониторинга
-  prometheus_data:
-  grafana_data:
