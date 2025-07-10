@@ -1,4 +1,3 @@
-```yaml
 name: Build, Push and Deploy
 
 on:
@@ -42,15 +41,15 @@ jobs:
             echo "ERROR: could not resolve ${{ secrets.PROD_DOMAIN }}"
             exit 1
           fi
-          echo "server_ip=$IP" >> $GITHUB_OUTPUT
+          echo "server_ip=$IP" >> $GITHUB_ENV
 
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ steps.resolve_host.outputs.server_ip }}
           username: ${{ secrets.PROD_SERVER_USER }}
-          key:      ${{ secrets.PROD_SSH_KEY }}
-          port:     22
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: 22
           script: |
             set -e
 
@@ -82,7 +81,6 @@ jobs:
             if [ ! -f "$PROD_DIR/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
               echo "‚ö†Ô∏è No certificate found. Obtaining a test one..."
               sudo docker-compose -f docker-compose.prod.yml down --remove-orphans || true
-              
               sudo docker-compose -f docker-compose.init.yml up -d
               
               sudo docker-compose -f docker-compose.init.yml run --rm certbot certonly \
@@ -104,4 +102,3 @@ jobs:
             sudo docker-compose -f docker-compose.prod.yml exec -T web flask db upgrade
 
             echo "Ì†ºÌæâ Deployment to production completed successfully!"
-```
