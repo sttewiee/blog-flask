@@ -45,7 +45,7 @@ jobs:
 
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.0
-        with:ы
+        with:
           host: ${{ env.server_ip }}  # Используем переменную окружения для IP
           username: ${{ secrets.PROD_SERVER_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
@@ -82,12 +82,10 @@ jobs:
               echo "⚠️ No certificate found. Obtaining a test one..."
               sudo docker-compose -f docker-compose.prod.yml down --remove-orphans || true
               sudo docker-compose -f docker-compose.init.yml up -d
-              
               sudo docker-compose -f docker-compose.init.yml run --rm certbot certonly \
                 --staging \
                 --webroot --webroot-path=/var/www/certbot \
                 -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email --non-interactive
-              
               sudo docker-compose -f docker-compose.init.yml down
             fi
 
