@@ -41,24 +41,10 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
 
-  # Новый сервис cAdvisor для сбора метрик о контейнерах
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.2
-    container_name: cadvisor
-    ports:
-      - "8080:8080"  # порт для доступа к меткам cAdvisor
-    volumes:
-      - "/:/rootfs:ro"
-      - "/var/run:/var/run:rw"
-      - "/sys:/sys:ro"
-      - "/var/lib/docker/:/var/lib/docker:ro"
-    networks:
-      - blog-network
-    restart: always
-
 networks:
   blog-network:
     driver: bridge
 
 volumes:
   pgdata:
+  certbot_data:  # Новый volume для хранения данных certbot
