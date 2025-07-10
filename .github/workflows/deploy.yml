@@ -57,13 +57,13 @@ jobs:
             export PROD_DIR="$PROJECT_DIR/blog-flask-prod"
             export DOMAIN="${{ secrets.PROD_DOMAIN }}"
             export EMAIL="${{ secrets.PROD_EMAIL }}"
-            
+
             if [ ! -d "$PROJECT_DIR" ]; then
               git clone https://github.com/sttewiee/blog-flask.git "$PROJECT_DIR"
             else
               cd "$PROJECT_DIR"; git pull
             fi
-            
+
             cd "$PROD_DIR"
 
             cat <<EOF > .env
