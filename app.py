@@ -41,7 +41,7 @@ def create_app(config_name=None):
         pass
 
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
-        'DATABASE_URL', 'postgresql://postgres:postgres@db:5432/postgres'
+        'DATABASE_URL', 'sqlite:///instance/blog.db'
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key')
