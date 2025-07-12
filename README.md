@@ -43,11 +43,19 @@ pip install -r requirements.txt
 
 4. Настройте переменные окружения:
 ```bash
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
-export SECRET_KEY="your-secret-key"
+# Скопируйте пример файла
+cp env.example .env
+
+# Отредактируйте .env файл под ваши нужды
+# Особенно важно изменить SECRET_KEY на уникальное значение
 ```
 
-5. Запустите приложение:
+5. Инициализируйте базу данных:
+```bash
+python init_db.py
+```
+
+6. Запустите приложение:
 ```bash
 python -m flask run
 ```

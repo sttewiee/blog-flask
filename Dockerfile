@@ -26,4 +26,4 @@ ENV FLASK_ENV=production
 EXPOSE 5000
 
 # Команда запуска
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"] 
+CMD ["python", "run.py"] 

@@ -5,9 +5,10 @@ services:
     build: .
     ports:
       - "5000:5000"
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
-      - SECRET_KEY=dev_secret_key_change_in_production
     depends_on:
       - db
     volumes:
