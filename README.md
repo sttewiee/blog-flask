@@ -92,7 +92,11 @@ blog-flask/
 
 Запустите тесты:
 ```bash
-pytest test_app.py
+# Простой способ
+python run_tests.py
+
+# Или напрямую с pytest
+python -m pytest -v --cov=app
 ```
 
 ## CI/CD Pipeline
