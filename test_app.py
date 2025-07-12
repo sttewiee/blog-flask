@@ -31,19 +31,22 @@ def test_home_page(client):
     """Test that home page loads."""
     response = client.get('/')
     assert response.status_code == 200
-    assert b'Blog' in response.data
+    # Проверяем русский текст "Блог"
+    assert b'\xd0\x91\xd0\xbb\xd0\xbe\xd0\xb3' in response.data
 
 def test_register_page(client):
     """Test that register page loads."""
     response = client.get('/register')
     assert response.status_code == 200
-    assert b'Registration' in response.data
+    # Проверяем русский текст "Регистрация"
+    assert b'\xd0\xa0\xd0\xb5\xd0\xb3\xd0\xb8\xd1\x81\xd1\x82\xd1\x80\xd0\xb0\xd1\x86\xd0\xb8\xd1\x8f' in response.data
 
 def test_login_page(client):
     """Test that login page loads."""
     response = client.get('/login')
     assert response.status_code == 200
-    assert b'Login' in response.data
+    # Проверяем русский текст "Вход"
+    assert b'\xd0\x92\xd1\x85\xd0\xbe\xd0\xb4' in response.data
 
 def test_create_post_requires_auth(client):
     """Test that creating a post requires authentication."""
