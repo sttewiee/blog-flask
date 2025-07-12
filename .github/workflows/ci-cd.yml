@@ -45,11 +45,13 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: Build and push Docker image
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       run: |
         docker buildx build \
           --cache-from type=gha \
           --cache-to type=gha,mode=max \
-          --tag ${{ secrets.DOCKER_USERNAME }}/flask-blog:latest \
+          --tag ${DOCKER_USERNAME}/flask-blog:latest \
           --push \
           .
 
