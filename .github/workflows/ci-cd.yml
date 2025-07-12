@@ -45,15 +45,13 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: Build and push Docker image
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ env.DOCKER_USERNAME }}/flask-blog:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      run: |
+        docker buildx build \
+          --cache-from type=gha \
+          --cache-to type=gha,mode=max \
+          --tag ${{ secrets.DOCKER_USERNAME }}/flask-blog:latest \
+          --push \
+          .
 
   deploy:
     needs: build-and-push
