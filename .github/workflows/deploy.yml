@@ -48,8 +48,8 @@ jobs:
       run: gcloud auth configure-docker
     - name: Build and push Docker image to GCR
       run: |
-        docker build -t gcr.io/sonic-harbor-465608-v1/flask-blog:${{ github.sha }} .
-        docker push gcr.io/sonic-harbor-465608-v1/flask-blog:${{ github.sha }}
+        docker build -t us-central1-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} .
+        docker push us-central1-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }}
 
   deploy:
     needs: build-and-push
