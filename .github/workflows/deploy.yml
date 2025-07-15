@@ -44,12 +44,12 @@ jobs:
       uses: google-github-actions/setup-gcloud@v2
       with:
         project_id: sonic-harbor-465608-v1
-    - name: Configure Docker for GCR
-      run: gcloud auth configure-docker
-    - name: Build and push Docker image to GCR
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker us-docker.pkg.dev
+    - name: Build and push Docker image to Artifact Registry
       run: |
-        docker build -t us-central1-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} .
-        docker push us-central1-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }}
+        docker build -t us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} .
+        docker push us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }}
 
   deploy:
     needs: build-and-push
@@ -70,4 +70,4 @@ jobs:
         gcloud container clusters get-credentials blog-gke --zone europe-west4-a --project sonic-harbor-465608-v1
     - name: Deploy to GKE
       run: |
-        kubectl set image deployment/flask-blog flask-blog=gcr.io/sonic-harbor-465608-v1/flask-blog:${{ github.sha }} -n blog-dev
+        kubectl set image deployment/flask-blog flask-blog=us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} -n blog-dev
