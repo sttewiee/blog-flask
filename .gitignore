@@ -9,7 +9,7 @@ blog-infra/service-account.json
 blog-infra/.terraform/
 blog-infra/terraform.tfstate
 blog-infra/terraform.tfstate.*
-
+.terraform/
 # Общие
 .DS_Store
-k8s/cloudsql-proxy-sa.json
+k8s/cloudsql-proxy-sa
