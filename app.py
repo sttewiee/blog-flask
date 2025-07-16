@@ -6,7 +6,7 @@ from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения из .env файла
+# Загружаем переменные окружения из .env файла---
 load_dotenv()
 
 # --- Инициализируем расширения здесь, но не привязываем их к приложению --------
