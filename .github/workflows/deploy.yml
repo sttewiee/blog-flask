@@ -1,9 +1,7 @@
-name: CI/CD Pipeline
+name: Deploy to GKE
 
 on:
   push:
-    branches: [ main, develop ]
-  pull_request:
     branches: [ main ]
 
 jobs:
@@ -50,10 +48,11 @@ jobs:
       run: |
         docker build -t us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} .
         docker push us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }}
+
   deploy:
     needs: build-and-push
     runs-on: ubuntu-22.04
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     steps:
     - uses: actions/checkout@v4
     - name: Authenticate to Google Cloud
@@ -74,6 +73,14 @@ jobs:
     - name: Get GKE credentials
       run: |
         gcloud container clusters get-credentials blog-gke --zone europe-west4-a --project sonic-harbor-465608-v1
+    - name: Set environment variables for deployment
+      id: setenv
+      run: |
+        if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+          echo "NAMESPACE=blog-prod" >> $GITHUB_ENV
+        else
+          echo "NAMESPACE=blog-dev" >> $GITHUB_ENV
+        fi
     - name: Deploy to GKE
       run: |
-        kubectl set image deployment/flask-blog flask-blog=us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} -n blog-dev
+        kubectl set image deployment/flask-blog flask-blog=us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} -n $NAMESPACE 
