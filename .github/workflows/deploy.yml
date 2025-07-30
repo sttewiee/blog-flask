@@ -73,7 +73,7 @@ jobs:
         sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
     - name: Get GKE credentials
       run: |
-        gcloud container clusters get-credentials blog-gke --zone europe-west4-a --project sonic-harbor-465608-v1
+        gcloud container clusters get-credentials blog-gke --region europe-west4 --project sonic-harbor-465608-v1
     - name: Deploy to GKE
       run: |
         kubectl set image deployment/flask-blog flask-blog=us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} -n blog-dev
