@@ -13,3 +13,7 @@ blog-infra/terraform.tfstate.*
 # Общие
 .DS_Store
 k8s/cloudsql-proxy-sacredentials.json
+credentials.json
+.env
+*.key
+*.crtcredentials.json
