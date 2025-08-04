@@ -13,9 +13,11 @@ spec:
       labels:
         app: flask-blog
     spec:
+      imagePullSecrets:
+        - name: regcred
       containers:
         - name: flask-blog
-          image: gcr.io/sonic-harbor-465608-v1/flask-blog:8ad82e920cd8da4de3f574f863c4b424cde6f2bc
+          image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog@sha256:5eb41e8cc43998d81be000e1c79eb9e084d109de95c2bbebc04fad1300b424e9
           ports:
             - containerPort: 5000
           env:
@@ -47,7 +49,26 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
-      # Если используется cloudsql-proxy как sidecar, добавьте его контейнер здесь
-      # - name: cloudsql-proxy
-      #   image: gcr.io/cloudsql-docker/gce-proxy:1.33.7
-      #   ... 
+
+        - name: cloud-sql-proxy
+          image: gcr.io/cloudsql-docker/gce-proxy:1.33.9
+          command:
+            - "/cloud_sql_proxy"
+            - "-instances=sonic-harbor-465608-v1:europe-west4:blog-db=tcp:5432"
+            - "-credential_file=/secrets/cloudsql/credentials.json"
+          volumeMounts:
+            - name: cloudsql-instance-credentials
+              mountPath: /secrets/cloudsql
+              readOnly: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+
+      volumes:
+        - name: cloudsql-instance-credentials
+          secret:
+            secretName: cloudsql-instance-credentials
