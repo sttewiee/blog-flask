@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+# ¬ключаем доступ к OIDC и репозиторию
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-22.04
@@ -41,10 +46,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Authenticate to Google Cloud (OIDC)
+    - name: Authenticate with Google Cloud via Workload Identity Federation
       uses: google-github-actions/auth@v2
       with:
-        workload_identity_provider: 'projects/sonic-harbor-465608-v1/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+        workload_identity_provider: 'projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
         service_account: 'github-actions-deployer@sonic-harbor-465608-v1.iam.gserviceaccount.com'
 
     - name: Set up Google Cloud SDK
@@ -67,24 +72,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Authenticate to Google Cloud (OIDC)
+    - name: Authenticate with Google Cloud via Workload Identity Federation
       uses: google-github-actions/auth@v2
       with:
-        workload_identity_provider: 'projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-        service_account: 'your-sa@sonic-harbor-465608-v1.iam.gserviceaccount.com'
+        workload_identity_provider: 'projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+        service_account: 'github-actions-deployer@sonic-harbor-465608-v1.iam.gserviceaccount.com'
 
     - name: Set up Google Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
       with:
         project_id: sonic-harbor-465608-v1
-
-    - name: Install gke-gcloud-auth-plugin
-      run: |
-        sudo apt-get install -y apt-transport-https ca-certificates gnupg
-        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
-        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
-        sudo apt-get update
-        sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
 
     - name: Get GKE credentials
       run: |
@@ -92,4 +89,6 @@ jobs:
 
     - name: Deploy to GKE
       run: |
-        kubectl set image deployment/flask-blog flask-blog=us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} -n blog-dev
+        kubectl set image deployment/flask-blog \
+          flask-blog=us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }} \
+          -n blog-dev
