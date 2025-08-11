@@ -1,13 +1,10 @@
-вот полный обновлённый `deploy.yml`:
-
-```yaml
 name: CI/CD Pipeline
 
-on:
+'on':
   push:
-    branches: [ main, develop ]
+    branches: [ 'main', 'develop' ]
   pull_request:
-    branches: [ main ]
+    branches: [ 'main' ]
 
 jobs:
   test:
@@ -113,4 +110,3 @@ jobs:
 
       - name: Wait for rollout
         run: kubectl -n blog-dev rollout status deployment/flask-blog
-```
