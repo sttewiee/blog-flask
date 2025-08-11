@@ -108,5 +108,15 @@ jobs:
           IMAGE=us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${{ github.sha }}
           kubectl -n blog-dev set image deployment/flask-blog flask-blog=$IMAGE
 
-      - name: Wait for rollout
-        run: kubectl -n blog-dev rollout status deployment/flask-blog
+      - name: Wait for rollout (with timeout)
+        run: kubectl -n blog-dev rollout status deployment/flask-blog --timeout=5m
+
+      - name: Show pod logs on failure
+        if: failure()
+        run: |
+          kubectl -n blog-dev get pods -o wide || true
+          for p in $(kubectl -n blog-dev get pods -l app=flask-blog -o jsonpath='{.items[*].metadata.name}'); do
+            echo "=== $p ==="
+            kubectl -n blog-dev logs "$p" --all-containers --tail=200 || true
+            kubectl -n blog-dev describe pod "$p" || true
+          done

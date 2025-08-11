@@ -5,13 +5,9 @@ metadata:
   namespace: blog-dev
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - lapikov.duckdns.org
-      secretName: lapikov-duckdns-tls
   rules:
     - host: lapikov.duckdns.org
       http:
