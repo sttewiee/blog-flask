@@ -1,4 +1,4 @@
-вот полный обновлённый `deploy.yml`:
+РІРѕС‚ РїРѕР»РЅС‹Р№ РѕР±РЅРѕРІР»С‘РЅРЅС‹Р№ `deploy.yml`:
 
 ```yaml
 name: CI/CD Pipeline
