@@ -1,151 +1,198 @@
-Стек
-Python 3.11, Flask
+# Flask Blog — Deployment Guide
 
-SQLAlchemy, Flask-Migrate (Alembic)
+## Стек
+- Python 3.11, Flask
+- SQLAlchemy, Flask-Migrate (Alembic)
+- PostgreSQL
+- Docker
+- CI/CD: GitHub Actions → Artifact Registry → GKE
 
-PostgreSQL
+---
 
-Docker
+## Быстрый старт (чистая Ubuntu VM)
 
-(CI/CD) GitHub Actions → Artifact Registry → GKE
+**Требуется**: JSON-ключ сервисного аккаунта с ролью **Cloud SQL Client**.  
+Файл назвать `cloudsql-key.json` и положить **рядом с репозиторием** (`~/blog-flask`).  
+**Никогда не коммитить!**
 
-Быстрый старт (чистая Ubuntu ВМ)
-Понадобится JSON-ключ сервисного аккаунта с ролью Cloud SQL Client.
-Файл назовите cloudsql-key.json и положите рядом с репозиторием. Не коммитить!
+---
 
-1) Установка Git и Docker
-bash
-Копировать
-Редактировать
+### 1. Установка Git и Docker
+
+```bash
 sudo apt-get update
 sudo apt-get install -y git ca-certificates curl gnupg lsb-release
+```
 
-# репозиторий Docker
+Репозиторий Docker:
+```bash
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
-| sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
 
-# чтобы работать без sudo
+Чтобы работать без `sudo`:
+```bash
 sudo usermod -aG docker $USER
 newgrp docker
-2) Клонирование репозитория
-bash
-Копировать
-Редактировать
-git clone https://github.com/sttewiee/blog-flask.git
-# или по SSH: git clone git@github.com:sttewiee/blog-flask.git
-cd blog-flask
-3) Подготовка ключа для Cloud SQL
-Положите сюда же cloudsql-key.json (из GCP → Service Accounts → Keys).
-Проверьте:
+```
 
-bash
-Копировать
-Редактировать
-ls -l cloudsql-key.json
-4) Сеть Docker и Cloud SQL Proxy v2
-bash
-Копировать
-Редактировать
+---
+
+### 2. Клонирование репозитория
+```bash
+git clone https://github.com/sttewiee/blog-flask.git
+cd blog-flask
+```
+или по SSH:
+```bash
+git clone git@github.com:sttewiee/blog-flask.git
+cd blog-flask
+```
+
+---
+
+### 3. Подготовка ключа для Cloud SQL
+
+1. В GCP → Service Accounts → Keys → **Create key** (JSON) → скачать.
+2. Переименовать в `cloudsql-key.json`.
+3. Положить в каталог проекта:
+```bash
+mv ~/Downloads/cloudsql-key.json ~/blog-flask/
+```
+4. Дать права для чтения непривилегированным контейнерам:
+```bash
+chmod 0644 cloudsql-key.json
+```
+5. Проверить, что файл валидный JSON:
+```bash
+python3 -m json.tool cloudsql-key.json
+```
+
+---
+
+### 4. Сеть Docker и Cloud SQL Proxy v2
+
+```bash
 docker network create blog-net || true
 
 docker rm -f cloud-sql-proxy 2>/dev/null || true
-docker run -d --name cloud-sql-proxy --restart unless-stopped --network blog-net \
-  -v "$PWD/cloudsql-key.json":/secrets/key.json:ro \
-  -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/key.json \
-  gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4 \
-  --address 0.0.0.0 --port 5432 \
-  sonic-harbor-465608-v1:europe-west4:blog-db
-5) Сборка и запуск приложения
-bash
-Копировать
-Редактировать
+
+docker run -d   --name cloud-sql-proxy   --restart unless-stopped   --network blog-net   --network-alias cloud-sql-proxy   -v "$PWD/cloudsql-key.json":/secrets/key.json:ro   -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/key.json   gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4   --address 0.0.0.0 --port 5432   sonic-harbor-465608-v1:europe-west4:blog-db
+```
+
+Проверка:
+```bash
+docker inspect -f '{{.State.Status}}' cloud-sql-proxy
+docker inspect -f '{{.NetworkSettings.Networks.blog-net.IPAddress}}' cloud-sql-proxy
+docker logs --tail=50 cloud-sql-proxy
+```
+Статус должен быть `running`, без ошибок.
+
+---
+
+### 5. Сборка и запуск приложения
+
+```bash
 docker build -t flask-blog:local .
 
-# сгенерируем секрет
 SECRET=$(openssl rand -hex 32)
 
 docker rm -f flask-blog 2>/dev/null || true
-docker run -d --name flask-blog --restart unless-stopped --network blog-net -p 80:5000 \
-  -e FLASK_ENV=production \
-  -e SECRET_KEY="$SECRET" \
-  -e DATABASE_URL="postgresql://bloguser:blogpassword@cloud-sql-proxy:5432/blogdb" \
-  flask-blog:local
-6) Миграции БД
-Миграции уже в репозитории. Просто примените:
 
-bash
-Копировать
-Редактировать
+docker run -d   --name flask-blog   --restart unless-stopped   --network blog-net   -p 80:5000   -e FLASK_ENV=production   -e SECRET_KEY="$SECRET"   -e DATABASE_URL="postgresql://bloguser:blogpassword@cloud-sql-proxy:5432/blogdb"   flask-blog:local
+```
+
+---
+
+### 6. Миграции БД
+
+```bash
 docker exec -it flask-blog flask db upgrade
-7) Проверка
-bash
-Копировать
-Редактировать
+```
+
+---
+
+### 7. Проверка
+
+```bash
 curl -I http://localhost
-# Должно быть: HTTP/1.1 200 OK
-Если нужен доступ снаружи, откройте TCP/80 для ВМ в firewall’е облака.
+```
+Ожидаемый ответ: `HTTP/1.1 200 OK`.
 
-Конфигурация
-Переменные окружения
-DATABASE_URL — строка подключения SQLAlchemy, пример:
-postgresql://bloguser:blogpassword@cloud-sql-proxy:5432/blogdb
+Для доступа извне откройте TCP/80 в firewall облака.
 
-SECRET_KEY — любая случайная строка (для сессий).
+---
 
-FLASK_ENV — production | development | testing.
+## Конфигурация переменных окружения
 
-Cloud SQL Proxy
-Мы используем v2-контейнер и слушаем 0.0.0.0:5432 внутри docker-сети blog-net.
-Имя подключения (Connection name) инстанса:
-sonic-harbor-465608-v1:europe-west4:blog-db.
+- `DATABASE_URL` — строка подключения SQLAlchemy, пример:
+  ```
+  postgresql://bloguser:blogpassword@cloud-sql-proxy:5432/blogdb
+  ```
+- `SECRET_KEY` — случайная строка для сессий.
+- `FLASK_ENV` — `production` | `development` | `testing`.
 
-Миграции: частые команды
-bash
-Копировать
-Редактировать
-# применить миграции
+---
+
+## Частые команды миграций
+
+Применить:
+```bash
 docker exec -it flask-blog flask db upgrade
-
-# создать новую миграцию после изменения моделей
+```
+Создать новую:
+```bash
 docker exec -it flask-blog flask db migrate -m "your change"
-
-# посмотреть текущую ревизию
+```
+Посмотреть текущую ревизию:
+```bash
 docker exec -it flask-blog flask db current
-
-# если БД уже создана вручную и нужно просто «подписать» ревизию:
+```
+Подписать ревизию без изменений:
+```bash
 docker exec -it flask-blog flask db stamp head
-Никогда не коммитьте cloudsql-key.json. Добавьте в .gitignore:
+```
 
-pgsql
-Копировать
-Редактировать
-cloudsql-key.json
-*.service-account.json
-.env
-Тесты локально
-По умолчанию тесты запускаются на SQLite in-memory.
+---
 
-bash
-Копировать
-Редактировать
+## Тесты локально
+```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export DATABASE_URL="sqlite:///:memory:" SECRET_KEY="test" FLASK_ENV="testing"
 pytest -v
-CI/CD (что делает GitHub Actions)
-test: ставит Python 3.11, зависимости, гоняет pytest на SQLite, выгружает coverage в Codecov. (Сейчас тесты не блокируют пайплайн — стоит || true.)
+```
 
-build-and-push: собирает Docker-образ и пушит в Artifact Registry:
-us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${GITHUB_SHA}
-Аутентификация — Workload Identity Federation (без JSON-ключей).
+---
 
-deploy (только ветка main): логинится в GKE, обновляет образ в деплойменте
-kubectl -n blog-dev set image deployment/flask-blog flask-blog=$IMAGE и ждёт rollout.
+## CI/CD (GitHub Actions)
+- **test**: Python 3.11, зависимости, pytest на SQLite, coverage в Codecov.
+- **build-and-push**: Docker build → Artifact Registry.
+- **deploy**: Обновление образа в GKE (только `main`).
 
-Миграции в CI/CD не выполняются — их применяет контейнер при запуске командой flask db upgrade вручную, либо можно добавить это в entrypoint/отдельный Job (в будущем).
+---
+
+## Типичные ошибки и отладка
+
+1. **`invalid character ...` при старте прокси** — ключ невалидный JSON.
+2. **`is a directory`** — `cloudsql-key.json` оказался папкой, а не файлом.
+3. **`permission denied`** — у файла слишком строгие права. Исправить:
+   ```bash
+   chmod 0644 cloudsql-key.json
+   ```
+4. **`could not translate host name "cloud-sql-proxy"`** — прокси не запущен или не в сети `blog-net`.
+5. Проверить статус и IP прокси:
+   ```bash
+   docker inspect -f '{{.State.Status}}' cloud-sql-proxy
+   docker inspect -f '{{.NetworkSettings.Networks.blog-net.IPAddress}}' cloud-sql-proxy
+   ```
+6. Проверить DNS из приложения:
+   ```bash
+   docker exec -it flask-blog getent hosts cloud-sql-proxy
+   ```
+
+---
