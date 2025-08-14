@@ -196,3 +196,56 @@ pytest -v
    ```
 
 ---
+
+SSH ключ для Git 
+```bash
+ssh-keygen -t ed25519 -C "your_email@example.com"
+---
+
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+```
+---
+Содержимое 
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+Переключить Git на ssh
+```bash
+ git remote set-url origin git@github.com:user/repo.git
+```
+
+Установить gcloud, auth-плагин и kubectl
+```bash
+sudo apt-get update
+sudo apt-get install -y apt-transport-https ca-certificates gnupg
+
+# Репозиторий Google Cloud SDK
+echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" \
+ | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+ | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+
+sudo apt-get update
+sudo apt-get install -y google-cloud-cli google-cloud-sdk-gke-gcloud-auth-plugin kubectl
+```
+Залогиниться
+```bash
+gcloud auth login --no-launch-browser
+```
+Выбрать проект
+```bash
+gcloud config set project sonic-harbor-465608-v1
+```
+kubeconfig для GKE
+```bash
+gcloud container clusters get-credentials blog-gke --region europe-west4 --project sonic-harbor-465608-v1
+```
+Проверь доступ
+```bash
+kubectl -n blog-dev get deploy flask-blog
+kubectl -n blog-dev get pods -l app=flask-blog
+kubectl -n blog-dev logs <имя-пода>
+kubectl -n blog-dev get svc
+kubectl -n blog-dev get ingress
+```
