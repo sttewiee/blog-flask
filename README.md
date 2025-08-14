@@ -6,14 +6,13 @@
 - PostgreSQL
 - Docker
 - CI/CD: GitHub Actions → Artifact Registry → GKE
-
+- K8s
 ---
 
-## Быстрый старт (чистая Ubuntu VM)
-
+## Быстрый старт 
 **Требуется**: JSON-ключ сервисного аккаунта с ролью **Cloud SQL Client**.  
 Файл назвать `cloudsql-key.json` и положить **рядом с репозиторием** (`~/blog-flask`).  
-**Никогда не коммитить!**
+**не коммитить**
 
 ---
 
@@ -47,12 +46,6 @@ newgrp docker
 git clone https://github.com/sttewiee/blog-flask.git
 cd blog-flask
 ```
-или по SSH:
-```bash
-git clone git@github.com:sttewiee/blog-flask.git
-cd blog-flask
-```
-
 ---
 
 ### 3. Подготовка ключа для Cloud SQL
@@ -136,26 +129,6 @@ curl -I http://localhost
 - `SECRET_KEY` — случайная строка для сессий.
 - `FLASK_ENV` — `production` | `development` | `testing`.
 
----
-
-## Частые команды миграций
-
-Применить:
-```bash
-docker exec -it flask-blog flask db upgrade
-```
-Создать новую:
-```bash
-docker exec -it flask-blog flask db migrate -m "your change"
-```
-Посмотреть текущую ревизию:
-```bash
-docker exec -it flask-blog flask db current
-```
-Подписать ревизию без изменений:
-```bash
-docker exec -it flask-blog flask db stamp head
-```
 
 ---
 
@@ -173,30 +146,8 @@ pytest -v
 - **test**: Python 3.11, зависимости, pytest на SQLite, coverage в Codecov.
 - **build-and-push**: Docker build → Artifact Registry.
 - **deploy**: Обновление образа в GKE (только `main`).
-
+- 
 ---
-
-## Типичные ошибки и отладка
-
-1. **`invalid character ...` при старте прокси** — ключ невалидный JSON.
-2. **`is a directory`** — `cloudsql-key.json` оказался папкой, а не файлом.
-3. **`permission denied`** — у файла слишком строгие права. Исправить:
-   ```bash
-   chmod 0644 cloudsql-key.json
-   ```
-4. **`could not translate host name "cloud-sql-proxy"`** — прокси не запущен или не в сети `blog-net`.
-5. Проверить статус и IP прокси:
-   ```bash
-   docker inspect -f '{{.State.Status}}' cloud-sql-proxy
-   docker inspect -f '{{.NetworkSettings.Networks.blog-net.IPAddress}}' cloud-sql-proxy
-   ```
-6. Проверить DNS из приложения:
-   ```bash
-   docker exec -it flask-blog getent hosts cloud-sql-proxy
-   ```
-
----
-
 SSH ключ для Git 
 ```bash
 ssh-keygen -t ed25519 -C "your_email@example.com"
@@ -206,15 +157,16 @@ eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_ed25519
 ```
 ---
-Содержимое 
+Содержимое ключа
 ```bash
 cat ~/.ssh/id_ed25519.pub
 ```
+---
 Переключить Git на ssh
 ```bash
  git remote set-url origin git@github.com:user/repo.git
 ```
-
+---
 Установить gcloud, auth-плагин и kubectl
 ```bash
 sudo apt-get update
@@ -229,18 +181,22 @@ curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
 sudo apt-get update
 sudo apt-get install -y google-cloud-cli google-cloud-sdk-gke-gcloud-auth-plugin kubectl
 ```
+---
 Залогиниться
 ```bash
 gcloud auth login --no-launch-browser
 ```
+---
 Выбрать проект
 ```bash
 gcloud config set project sonic-harbor-465608-v1
 ```
+---
 kubeconfig для GKE
 ```bash
 gcloud container clusters get-credentials blog-gke --region europe-west4 --project sonic-harbor-465608-v1
 ```
+---
 Проверь доступ
 ```bash
 kubectl -n blog-dev get deploy flask-blog
