@@ -106,7 +106,7 @@ jobs:
       - name: Enable GKE auth plugin
         run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
-      # Создать кластер, если отсутствует
+      # Создаём кластер, если отсутствует
       - name: Ensure GKE cluster exists (idempotent)
         run: |
           set -e
@@ -127,7 +127,6 @@ jobs:
         run: |
           kubectl get ns blog-dev || kubectl create ns blog-dev
           kubectl get ns monitoring || kubectl create ns monitoring
-          # если у тебя есть k8s/namespace.yaml — тоже применим
           if [ -f k8s/namespace.yaml ]; then kubectl apply -f k8s/namespace.yaml; fi
 
       # Ingress NGINX
@@ -151,13 +150,23 @@ jobs:
           kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
           kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
 
-      # Проверка секретов (fail-fast)
+      # Проверяем, что секреты заданы в GitHub
       - name: Check required GitHub secrets
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          CLOUDSQL_KEY_JSON: ${{ secrets.CLOUDSQL_KEY_JSON }}
         run: |
-          [ -n "${{ secrets.SECRET_KEY }}" ] || { echo "Missing SECRET_KEY"; exit 1; }
-          [ -n "${{ secrets.CLOUDSQL_KEY_JSON }}" ] || { echo "Missing CLOUDSQL_KEY_JSON"; exit 1; }
+          set -eu
+          if [ -z "${SECRET_KEY:-}" ]; then
+            echo "Missing SECRET_KEY"
+            exit 1
+          fi
+          if [ -z "${CLOUDSQL_KEY_JSON:-}" ]; then
+            echo "Missing CLOUDSQL_KEY_JSON"
+            exit 1
+          fi
 
-      # Секрет для Artifact Registry
+      # Docker pull secret для Artifact Registry
       - name: Create/Update Artifact Registry pull secret (regcred)
         env:
           GAR_EMAIL: ${{ secrets.GAR_EMAIL }}
@@ -188,11 +197,11 @@ jobs:
             --from-file=credentials.json=/tmp/credentials.json \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      # ClusterIssuer — после готовности cert-manager
+      # ClusterIssuer (после готовности cert-manager)
       - name: Apply ClusterIssuer (cert-manager)
         run: kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
 
-      # Базовые манифесты
+      # Базовые манифесты приложения
       - name: Apply base manifests (Service, Deployment, Ingress)
         run: |
           kubectl apply -f k8s/service.yaml
@@ -204,7 +213,6 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y gettext-base
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
-          # Шаблон job-migrate.tmpl.yaml должен лежать в k8s/
           env IMAGE="$IMAGE" bash -lc 'envsubst < k8s/job-migrate.tmpl.yaml | kubectl apply -f -'
           kubectl -n blog-dev wait --for=condition=complete --timeout=5m job/flask-blog-migrate
           kubectl -n blog-dev logs job/flask-blog-migrate --all-containers --tail=-1 || true
