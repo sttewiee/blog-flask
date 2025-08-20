@@ -12,7 +12,7 @@ spec:
         - name: regcred
       containers:
         - name: migrate
-          image: {{IMAGE}}
+          image: ${IMAGE}
           imagePullPolicy: IfNotPresent
           command: ["bash","-lc","flask db upgrade"]
           env:

@@ -106,7 +106,6 @@ jobs:
       - name: Enable GKE auth plugin
         run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
-      # Создаём кластер, если отсутствует
       - name: Ensure GKE cluster exists (idempotent)
         run: |
           set -e
@@ -129,7 +128,6 @@ jobs:
           kubectl get ns monitoring || kubectl create ns monitoring
           if [ -f k8s/namespace.yaml ]; then kubectl apply -f k8s/namespace.yaml; fi
 
-      # Ingress NGINX
       - name: Install/upgrade ingress-nginx (cloud)
         run: |
           kubectl get ns ingress-nginx || kubectl create ns ingress-nginx
@@ -138,7 +136,6 @@ jobs:
       - name: Wait for ingress-nginx
         run: kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=5m
 
-      # cert-manager
       - name: Install/upgrade cert-manager (with CRDs)
         run: |
           kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.crds.yaml
@@ -150,7 +147,6 @@ jobs:
           kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
           kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
 
-      # Проверяем, что секреты заданы в GitHub
       - name: Check required GitHub secrets
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -166,7 +162,6 @@ jobs:
             exit 1
           fi
 
-      # Docker pull secret для Artifact Registry
       - name: Create/Update Artifact Registry pull secret (regcred)
         env:
           GAR_EMAIL: ${{ secrets.GAR_EMAIL }}
@@ -179,7 +174,6 @@ jobs:
             --docker-email="${GAR_EMAIL:-actions@example.com}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      # Секреты приложения и Cloud SQL key
       - name: Create/Update app secret (blog-secrets)
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -197,28 +191,25 @@ jobs:
             --from-file=credentials.json=/tmp/credentials.json \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      # ClusterIssuer (после готовности cert-manager)
       - name: Apply ClusterIssuer (cert-manager)
         run: kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
 
-      # Базовые манифесты приложения
       - name: Apply base manifests (Service, Deployment, Ingress)
         run: |
           kubectl apply -f k8s/service.yaml
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
 
-      # Миграции БД на новом образе
       - name: Run DB migrations (Job)
         run: |
           sudo apt-get update && sudo apt-get install -y gettext-base
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
-          env IMAGE="$IMAGE" bash -lc 'envsubst < k8s/job-migrate.tmpl.yaml | kubectl apply -f -'
+          env IMAGE="$IMAGE" envsubst '${IMAGE}' < k8s/job-migrate.tmpl.yaml > /tmp/job-migrate.yaml
+          kubectl apply -f /tmp/job-migrate.yaml
           kubectl -n blog-dev wait --for=condition=complete --timeout=5m job/flask-blog-migrate
           kubectl -n blog-dev logs job/flask-blog-migrate --all-containers --tail=-1 || true
           kubectl -n blog-dev delete job flask-blog-migrate --ignore-not-found=true
 
-      # Перекатываем Deployment на свежий образ
       - name: Rollout new image to Deployment
         run: |
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
