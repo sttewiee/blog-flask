@@ -18,19 +18,24 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       - name: Run tests
         run: |
           export DATABASE_URL="sqlite:///:memory:"
           export SECRET_KEY="test_secret_key"
           export FLASK_ENV="testing"
           python -m pytest -v --cov=app --cov-report=xml || true
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -45,21 +50,28 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: google-github-actions/auth@v2
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/684965854112/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: github-actions-deployer@sonic-harbor-465608-v1.iam.gserviceaccount.com
           create_credentials_file: true
           export_environment_variables: true
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
-      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
           install_components: 'kubectl,gke-gcloud-auth-plugin'
+
       - name: Enable GKE auth plugin
         run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker us-docker.pkg.dev --quiet
+
       - name: Build and push Docker image
         run: |
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
@@ -76,7 +88,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: google-github-actions/auth@v2
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/684965854112/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: github-actions-deployer@sonic-harbor-465608-v1.iam.gserviceaccount.com
@@ -84,7 +97,8 @@ jobs:
           export_environment_variables: true
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
           install_components: 'kubectl,gke-gcloud-auth-plugin'
@@ -92,6 +106,7 @@ jobs:
       - name: Enable GKE auth plugin
         run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
+      # Создать кластер, если отсутствует
       - name: Ensure GKE cluster exists (idempotent)
         run: |
           set -e
@@ -112,18 +127,37 @@ jobs:
         run: |
           kubectl get ns blog-dev || kubectl create ns blog-dev
           kubectl get ns monitoring || kubectl create ns monitoring
-          kubectl apply -f k8s/namespace.yaml
+          # если у тебя есть k8s/namespace.yaml — тоже применим
+          if [ -f k8s/namespace.yaml ]; then kubectl apply -f k8s/namespace.yaml; fi
 
+      # Ingress NGINX
       - name: Install/upgrade ingress-nginx (cloud)
         run: |
           kubectl get ns ingress-nginx || kubectl create ns ingress-nginx
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
 
-      - name: Install/upgrade cert-manager
+      - name: Wait for ingress-nginx
+        run: kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=5m
+
+      # cert-manager
+      - name: Install/upgrade cert-manager (with CRDs)
         run: |
           kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.crds.yaml
           kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
 
+      - name: Wait for cert-manager
+        run: |
+          kubectl -n cert-manager rollout status deploy/cert-manager --timeout=5m
+          kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
+          kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
+
+      # Проверка секретов (fail-fast)
+      - name: Check required GitHub secrets
+        run: |
+          [ -n "${{ secrets.SECRET_KEY }}" ] || { echo "Missing SECRET_KEY"; exit 1; }
+          [ -n "${{ secrets.CLOUDSQL_KEY_JSON }}" ] || { echo "Missing CLOUDSQL_KEY_JSON"; exit 1; }
+
+      # Секрет для Artifact Registry
       - name: Create/Update Artifact Registry pull secret (regcred)
         env:
           GAR_EMAIL: ${{ secrets.GAR_EMAIL }}
@@ -136,6 +170,7 @@ jobs:
             --docker-email="${GAR_EMAIL:-actions@example.com}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      # Секреты приложения и Cloud SQL key
       - name: Create/Update app secret (blog-secrets)
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -153,24 +188,29 @@ jobs:
             --from-file=credentials.json=/tmp/credentials.json \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      # ClusterIssuer — после готовности cert-manager
       - name: Apply ClusterIssuer (cert-manager)
         run: kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
 
+      # Базовые манифесты
       - name: Apply base manifests (Service, Deployment, Ingress)
         run: |
           kubectl apply -f k8s/service.yaml
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
 
+      # Миграции БД на новом образе
       - name: Run DB migrations (Job)
         run: |
           sudo apt-get update && sudo apt-get install -y gettext-base
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
+          # Шаблон job-migrate.tmpl.yaml должен лежать в k8s/
           env IMAGE="$IMAGE" bash -lc 'envsubst < k8s/job-migrate.tmpl.yaml | kubectl apply -f -'
           kubectl -n blog-dev wait --for=condition=complete --timeout=5m job/flask-blog-migrate
           kubectl -n blog-dev logs job/flask-blog-migrate --all-containers --tail=-1 || true
           kubectl -n blog-dev delete job flask-blog-migrate --ignore-not-found=true
 
+      # Перекатываем Deployment на свежий образ
       - name: Rollout new image to Deployment
         run: |
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
