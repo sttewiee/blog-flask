@@ -17,7 +17,7 @@
       <a class="btn btn-primary mb-2" href="{{ url_for('create') }}">Создать постик</a>
       <a class="btn btn-secondary mb-2" href="{{ url_for('logout') }}">Выйти</a>
     {% else %}
-      <a class="btn btn-primary mb-2" href="{{ url_for('login') }}">Войти</a>
+      <a class="btn btn-primary mb-2" href="{{ url_for('login') }}">Войдите</a>
       <a class="btn btn-secondary mb-2" href="{{ url_for('register') }}">Регистрация</a>
     {% endif %}
     {% for post in posts %}
