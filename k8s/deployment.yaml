@@ -17,12 +17,13 @@ spec:
         - name: regcred
       containers:
         - name: flask-blog
-          image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog@sha256:5eb41e8cc43998d81be000e1c79eb9e084d109de95c2bbebc04fad1300b424e9
+          image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
           env:
             - name: FLASK_ENV
-              value: "development"
+              value: "production"
             - name: DATABASE_URL
               value: "postgresql://bloguser:blogpassword@127.0.0.1:5432/blogdb"
             - name: SECRET_KEY
@@ -51,21 +52,23 @@ spec:
               memory: "512Mi"
 
         - name: cloud-sql-proxy
-          image: gcr.io/cloudsql-docker/gce-proxy:1.33.9
-          command:
-            - "/cloud_sql_proxy"
-            - "-instances=sonic-harbor-465608-v1:europe-west4:blog-db=tcp:5432"
-            - "-credential_file=/secrets/cloudsql/credentials.json"
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
+          args:
+            - "--port=5432"
+            - "--credentials-file=/secrets/credentials.json"
+            - "sonic-harbor-465608-v1:europe-west4:blog-db"
           volumeMounts:
             - name: cloudsql-instance-credentials
-              mountPath: /secrets/cloudsql
+              mountPath: /secrets
               readOnly: true
+          securityContext:
+            runAsNonRoot: true
           resources:
             requests:
               cpu: "50m"
               memory: "64Mi"
             limits:
-              cpu: "100m"
+              cpu: "200m"
               memory: "128Mi"
 
       volumes:

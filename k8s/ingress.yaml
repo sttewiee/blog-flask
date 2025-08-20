@@ -4,10 +4,13 @@ metadata:
   name: flask-blog-ingress
   namespace: blog-dev
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    cert-manager.io/cluster-issuer: letsencrypt
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - lapikov.duckdns.org
+      secretName: flask-blog-tls
   rules:
     - host: lapikov.duckdns.org
       http:

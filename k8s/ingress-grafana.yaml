@@ -4,8 +4,7 @@ metadata:
   name: grafana-ingress
   namespace: monitoring
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt
 spec:
   ingressClassName: nginx
   tls:

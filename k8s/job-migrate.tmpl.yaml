@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: flask-blog-migrate
+  namespace: blog-dev
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: migrate
+          image: {{IMAGE}}
+          imagePullPolicy: IfNotPresent
+          command: ["bash","-lc","flask db upgrade"]
+          env:
+            - name: FLASK_ENV
+              value: "production"
+            - name: DATABASE_URL
+              value: "postgresql://bloguser:blogpassword@127.0.0.1:5432/blogdb"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: blog-secrets
+                  key: SECRET_KEY
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
+          args:
+            - "--port=5432"
+            - "--credentials-file=/secrets/credentials.json"
+            - "sonic-harbor-465608-v1:europe-west4:blog-db"
+          volumeMounts:
+            - name: cloudsql-instance-credentials
+              mountPath: /secrets
+              readOnly: true
+      volumes:
+        - name: cloudsql-instance-credentials
+          secret:
+            secretName: cloudsql-instance-credentials
