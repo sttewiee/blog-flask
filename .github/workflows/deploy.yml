@@ -204,11 +204,12 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y gettext-base
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
-          env IMAGE="$IMAGE" envsubst '${IMAGE}' < k8s/job-migrate.tmpl.yaml > /tmp/job-migrate.yaml
+          JOB_NAME="flask-blog-migrate-$(date +%s)"
+          env IMAGE="$IMAGE" JOB_NAME="$JOB_NAME" envsubst '${IMAGE} ${JOB_NAME}' < k8s/job-migrate.tmpl.yaml > /tmp/job-migrate.yaml
           kubectl apply -f /tmp/job-migrate.yaml
-          kubectl -n blog-dev wait --for=condition=complete --timeout=5m job/flask-blog-migrate
-          kubectl -n blog-dev logs job/flask-blog-migrate --all-containers --tail=-1 || true
-          kubectl -n blog-dev delete job flask-blog-migrate --ignore-not-found=true
+          kubectl -n blog-dev wait --for=condition=complete --timeout=5m job/$JOB_NAME
+          kubectl -n blog-dev logs job/$JOB_NAME --all-containers --tail=-1 || true
+          kubectl -n blog-dev delete job $JOB_NAME --ignore-not-found=true
 
       - name: Rollout new image to Deployment
         run: |

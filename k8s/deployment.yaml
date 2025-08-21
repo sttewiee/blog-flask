@@ -25,7 +25,7 @@ spec:
             - name: FLASK_ENV
               value: "production"
             - name: DATABASE_URL
-              value: "postgresql://bloguser:blogpassword@127.0.0.1:5432/blogdb"
+              value: "postgresql://bloguser:blogpassword@localhost:5432/blogdb"
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
