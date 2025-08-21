@@ -75,10 +75,12 @@ jobs:
       - name: Build and push Docker image
         run: |
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
+          LATEST_IMAGE=${{ env.IMAGE_REPO }}:latest
           # Clean up old images to force rebuild
           docker system prune -f
-          docker build --no-cache -t $IMAGE .
+          docker build --no-cache -t $IMAGE -t $LATEST_IMAGE .
           docker push $IMAGE
+          docker push $LATEST_IMAGE
 
   deploy:
     needs: build-and-push
@@ -198,10 +200,8 @@ jobs:
 
       - name: Apply base manifests (Service, Deployment, Ingress)
         run: |
-          IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
-          env IMAGE_TAG="${{ github.sha }}" envsubst '${IMAGE_TAG}' < k8s/deployment.yaml > /tmp/deployment.yaml
           kubectl apply -f k8s/service.yaml
-          kubectl apply -f /tmp/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
 
       - name: Run DB migrations (Job)
