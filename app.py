@@ -133,3 +133,6 @@ def create_app(config_name=None):
         return redirect(url_for('home'))
 
     return app
+
+# Версия приложения для отслеживания деплоев
+__version__ = '1.0.1'
