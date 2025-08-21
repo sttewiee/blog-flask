@@ -1,6 +1,6 @@
-"""initial
+"""bootstrap existing schema
 
-Revision ID: 001
+Revision ID: 7e01109534a6
 Revises: 
 Create Date: 2025-08-21 14:20:00.000000
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '001'
+revision = '7e01109534a6'
 down_revision = None
 branch_labels = None
 depends_on = None
