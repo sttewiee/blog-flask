@@ -204,26 +204,15 @@ jobs:
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
 
-      - name: Run DB migrations (Job)
+      - name: Wait for deployment rollout
         run: |
-          sudo apt-get update && sudo apt-get install -y gettext-base
-          IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
-          JOB_NAME="flask-blog-migrate-$(date +%s)"
-          env IMAGE="$IMAGE" JOB_NAME="$JOB_NAME" envsubst '${IMAGE} ${JOB_NAME}' < k8s/job-migrate.tmpl.yaml > /tmp/job-migrate.yaml
-          kubectl apply -f /tmp/job-migrate.yaml
-          kubectl -n blog-dev wait --for=condition=complete --timeout=10m job/$JOB_NAME
-          kubectl -n blog-dev logs job/$JOB_NAME --all-containers --tail=-1 || true
-          kubectl -n blog-dev delete job $JOB_NAME --ignore-not-found=true
+          kubectl -n blog-dev rollout status deployment/flask-blog --timeout=10m
 
-      - name: Rollout new image to Deployment
+      - name: Verify deployment
         run: |
-          IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
-          kubectl -n blog-dev set image deployment/flask-blog flask-blog=$IMAGE
-          # Also update the latest tag to point to the new image
-          kubectl -n blog-dev set image deployment/flask-blog flask-blog=$IMAGE
-
-      - name: Wait for rollout
-        run: kubectl -n blog-dev rollout status deployment/flask-blog --timeout=5m
+          kubectl -n blog-dev get pods -o wide
+          kubectl -n blog-dev get services
+          kubectl -n blog-dev get ingress
 
       - name: Show pod logs on failure
         if: failure()
