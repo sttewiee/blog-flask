@@ -1,207 +1,195 @@
-# Flask Blog — Deployment Guide
+# 🚀 Flask Blog — Полное руководство
 
-## Стек
-- Python 3.11, Flask
-- SQLAlchemy, Flask-Migrate (Alembic)
-- PostgreSQL
-- Docker
-- CI/CD: GitHub Actions → Artifact Registry → GKE
-- K8s
----
+## ✨ Возможности
 
-## Быстрый старт 
-**Требуется**: JSON-ключ сервисного аккаунта с ролью **Cloud SQL Client**.  
-Файл назвать `cloudsql-key.json` и положить **рядом с репозиторием** (`~/blog-flask`).  
-**не коммитить**
+### 🔧 **Автоматическая инициализация БД**
+- **Entrypoint скрипт** автоматически создает таблицы при запуске
+- **Ожидание готовности PostgreSQL** перед запуском приложения
+- **Автоматические миграции** через Flask-Migrate
 
----
+### 🏥 **Health Checks**
+- **Docker health checks** для web и db сервисов
+- **Автоматический мониторинг** состояния контейнеров
+- **Graceful startup** с проверкой зависимостей
 
-### 1. Установка Git и Docker
+### 🐳 **Улучшенный Docker**
+- **Multi-stage build** с оптимизацией
+- **Безопасность**: непривилегированный пользователь
+- **Автоматическая установка зависимостей**
 
+## 🚀 Быстрый старт
+
+### 1. Клонирование и настройка
 ```bash
-sudo apt-get update
-sudo apt-get install -y git ca-certificates curl gnupg lsb-release
-```
-
-Репозиторий Docker:
-```bash
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-
-Чтобы работать без `sudo`:
-```bash
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
----
-
-### 2. Клонирование репозитория
-```bash
-git clone https://github.com/sttewiee/blog-flask.git
+git clone <your-repo>
 cd blog-flask
-```
----
-
-### 3. Подготовка ключа для Cloud SQL
-
-1. В GCP → Service Accounts → Keys → **Create key** (JSON) → скачать.
-2. Переименовать в `cloudsql-key.json`.
-3. Положить в каталог проекта:
-```bash
-mv ~/Downloads/cloudsql-key.json ~/blog-flask/
-```
-4. Дать права для чтения непривилегированным контейнерам:
-```bash
-chmod 0644 cloudsql-key.json
-```
-5. Проверить, что файл валидный JSON:
-```bash
-python3 -m json.tool cloudsql-key.json
+chmod +x run_tests_docker.sh restart_final.sh
 ```
 
----
-
-### 4. Сеть Docker и Cloud SQL Proxy v2
-
+### 2. Запуск в Docker (рекомендуется)
 ```bash
-docker network create blog-net || true
+# Полный запуск с финальной конфигурацией
+./restart_final.sh
 
-docker rm -f cloud-sql-proxy 2>/dev/null || true
-
-docker run -d   --name cloud-sql-proxy   --restart unless-stopped   --network blog-net   --network-alias cloud-sql-proxy   -v "$PWD/cloudsql-key.json":/secrets/key.json:ro   -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/key.json   gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4   --address 0.0.0.0 --port 5432   sonic-harbor-465608-v1:europe-west4:blog-db
+# Или пошагово:
+docker compose up -d --build
 ```
 
-Проверка:
+### 3. Проверка статуса
 ```bash
-docker inspect -f '{{.State.Status}}' cloud-sql-proxy
-docker inspect -f '{{.NetworkSettings.Networks.blog-net.IPAddress}}' cloud-sql-proxy
-docker logs --tail=50 cloud-sql-proxy
-```
-Статус должен быть `running`, без ошибок.
-
----
-
-### 5. Сборка и запуск приложения
-
-```bash
-docker build -t flask-blog:local .
-
-SECRET=$(openssl rand -hex 32)
-
-docker rm -f flask-blog 2>/dev/null || true
-
-docker run -d   --name flask-blog   --restart unless-stopped   --network blog-net   -p 80:5000   -e FLASK_ENV=production   -e SECRET_KEY="$SECRET"   -e DATABASE_URL="postgresql://bloguser:blogpassword@cloud-sql-proxy:5432/blogdb"   flask-blog:local
+docker compose ps
+docker logs blog-flask-web-1
 ```
 
----
-
-### 6. Миграции БД
-
+### 4. Тестирование
 ```bash
-docker exec -it flask-blog flask db upgrade
+# Тесты в контейнере (безопасно для основной БД)
+./run_tests_docker.sh
+
+# Или напрямую
+docker exec blog-flask-web-1 python -m pytest -v
 ```
 
----
+## 🏗️ Архитектура
 
-### 7. Проверка
+### **Сервисы**
+- **web**: Flask приложение с автоматической инициализацией БД
+- **db**: PostgreSQL 15 с health checks и автоматической настройкой
 
+### **Entrypoint скрипт**
 ```bash
-curl -I http://localhost
+# Автоматически выполняет:
+1. Ожидание готовности PostgreSQL
+2. Создание таблиц БД
+3. Выполнение миграций
+4. Запуск приложения
 ```
-Ожидаемый ответ: `HTTP/1.1 200 OK`.
 
-Для доступа извне откройте TCP/80 в firewall облака.
+### **Health Checks**
+- **Web**: HTTP GET / (curl)
+- **DB**: pg_isready
+- **Интервалы**: 30s для web, 10s для db
 
----
+## 🔍 Мониторинг
 
-## Конфигурация переменных окружения
-
-- `DATABASE_URL` — строка подключения SQLAlchemy, пример:
-  ```
-  postgresql://bloguser:blogpassword@cloud-sql-proxy:5432/blogdb
-  ```
-- `SECRET_KEY` — случайная строка для сессий.
-- `FLASK_ENV` — `production` | `development` | `testing`.
-
-
----
-
-## Тесты локально
+### **Логи контейнеров**
 ```bash
-python -m venv .venv && source .venv/bin/activate
+# Web сервис
+docker logs blog-flask-web-1 -f
+
+# База данных
+docker logs blog-flask-db-1 -f
+
+# Все сервисы
+docker compose logs -f
+```
+
+### **Статус сервисов**
+```bash
+docker compose ps
+docker compose exec web curl -f http://localhost:5000/
+docker compose exec db pg_isready -U postgres
+```
+
+## 🧪 Тестирование
+
+### **Безопасные тесты в контейнере**
+```bash
+# Тесты используют SQLite в памяти и не влияют на основную БД
+./run_tests_docker.sh
+```
+
+### **Локальные тесты**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-export DATABASE_URL="sqlite:///:memory:" SECRET_KEY="test" FLASK_ENV="testing"
-pytest -v
+python -m pytest -v
 ```
 
----
+## 🚀 Продакшен деплой
 
-## CI/CD (GitHub Actions)
-- **test**: Python 3.11, зависимости, pytest на SQLite, coverage в Codecov.
-- **build-and-push**: Docker build → Artifact Registry.
-- **deploy**: Обновление образа в GKE (только `main`).
-- 
----
-SSH ключ для Git 
-```bash
-ssh-keygen -t ed25519 -C "your_email@example.com"
----
+### **CI/CD Pipeline (GitHub Actions)**
+- **Test Stage**: Автоматические тесты при каждом push
+- **Build & Push Stage**: Сборка Docker образа и загрузка в Google Artifact Registry
+- **Deploy Stage**: Автоматический деплой в GKE кластер
 
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
-```
----
-Содержимое ключа
-```bash
-cat ~/.ssh/id_ed25519.pub
-```
----
-Переключить Git на ssh
-```bash
- git remote set-url origin git@github.com:user/repo.git
-```
----
-Установить gcloud, auth-плагин и kubectl
-```bash
-sudo apt-get update
-sudo apt-get install -y apt-transport-https ca-certificates gnupg
+### **Инфраструктура (Terraform)**
+- **GKE кластер** с автоскейлингом
+- **Cloud SQL** (PostgreSQL) для продакшена
+- **Load Balancer** и **Ingress** для внешнего доступа
+- **Workload Identity Federation** для безопасной аутентификации
 
-# Репозиторий Google Cloud SDK
-echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" \
- | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
-curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
- | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+### **Kubernetes манифесты**
+- **Deployment** с health checks (liveness/readiness probes)
+- **Service** и **Ingress** для маршрутизации
+- **ConfigMap** и **Secrets** для конфигурации
+- **HorizontalPodAutoscaler** для автоматического масштабирования
 
-sudo apt-get update
-sudo apt-get install -y google-cloud-cli google-cloud-sdk-gke-gcloud-auth-plugin kubectl
-```
----
-Залогиниться
+## 🔧 Устранение неполадок
+
+### **Проблемы с Docker**
 ```bash
-gcloud auth login --no-launch-browser
+# Проверить права
+sudo usermod -aG docker $USER && newgrp docker
+
+# Перезапуск с новой конфигурацией
+./restart_final.sh
 ```
----
-Выбрать проект
+
+### **Проблемы с базой данных**
 ```bash
-gcloud config set project sonic-harbor-465608-v1
+# Проверить статус контейнеров
+docker compose ps
+
+# Проверить таблицы БД
+docker exec blog-flask-db-1 psql -U postgres -d postgres -c "\dt"
+
+# Инициализировать БД если нужно
+docker exec blog-flask-web-1 python init_db.py
 ```
----
-kubeconfig для GKE
+
+### **Проблемы с приложением**
 ```bash
-gcloud container clusters get-credentials blog-gke --region europe-west4 --project sonic-harbor-465608-v1
+# Проверить логи
+docker logs blog-flask-web-1 -f
+
+# Проверить доступность
+curl -I http://localhost:5000
 ```
----
-Проверь доступ
+
+## 📁 Структура проекта
+
+```
+blog-flask/
+├── app.py                 # Основное Flask приложение
+├── requirements.txt       # Python зависимости
+├── Dockerfile            # Docker образ
+├── docker-compose.yml    # Локальная разработка
+├── docker-entrypoint.sh  # Скрипт запуска контейнера
+├── init_db.py            # Инициализация БД
+├── run_tests_docker.sh   # Безопасные тесты в контейнере
+├── restart_final.sh      # Полный перезапуск
+├── k8s/                  # Kubernetes манифесты
+├── blog-infra/           # Terraform конфигурация
+└── .github/workflows/    # CI/CD pipeline
+```
+
+## 💡 Полезные команды
+
 ```bash
-kubectl -n blog-dev get deploy flask-blog
-kubectl -n blog-dev get pods -l app=flask-blog
-kubectl -n blog-dev logs <имя-пода>
-kubectl -n blog-dev get svc
-kubectl -n blog-dev get ingress
+# Полный перезапуск
+./restart_final.sh
+
+# Тесты
+./run_tests_docker.sh
+
+# Статус
+docker compose ps
+
+# Логи
+docker logs blog-flask-web-1 -f
+
+# Доступ к БД
+docker exec -it blog-flask-db-1 psql -U postgres -d postgres
 ```
