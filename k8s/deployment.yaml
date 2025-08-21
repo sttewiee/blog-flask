@@ -17,7 +17,7 @@ spec:
         - name: regcred
       containers:
         - name: flask-blog
-          image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:latest
+          image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:${IMAGE_TAG:-latest}
           imagePullPolicy: Always
           ports:
             - containerPort: 5000

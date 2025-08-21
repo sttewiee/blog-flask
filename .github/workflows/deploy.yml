@@ -75,7 +75,9 @@ jobs:
       - name: Build and push Docker image
         run: |
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
-          docker build -t $IMAGE .
+          # Clean up old images to force rebuild
+          docker system prune -f
+          docker build --no-cache -t $IMAGE .
           docker push $IMAGE
 
   deploy:
@@ -196,8 +198,10 @@ jobs:
 
       - name: Apply base manifests (Service, Deployment, Ingress)
         run: |
+          IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
+          env IMAGE_TAG="${{ github.sha }}" envsubst '${IMAGE_TAG}' < k8s/deployment.yaml > /tmp/deployment.yaml
           kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f /tmp/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
 
       - name: Run DB migrations (Job)
@@ -214,6 +218,8 @@ jobs:
       - name: Rollout new image to Deployment
         run: |
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
+          kubectl -n blog-dev set image deployment/flask-blog flask-blog=$IMAGE
+          # Also update the latest tag to point to the new image
           kubectl -n blog-dev set image deployment/flask-blog flask-blog=$IMAGE
 
       - name: Wait for rollout
