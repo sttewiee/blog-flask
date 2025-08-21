@@ -207,7 +207,7 @@ jobs:
           JOB_NAME="flask-blog-migrate-$(date +%s)"
           env IMAGE="$IMAGE" JOB_NAME="$JOB_NAME" envsubst '${IMAGE} ${JOB_NAME}' < k8s/job-migrate.tmpl.yaml > /tmp/job-migrate.yaml
           kubectl apply -f /tmp/job-migrate.yaml
-          kubectl -n blog-dev wait --for=condition=complete --timeout=5m job/$JOB_NAME
+          kubectl -n blog-dev wait --for=condition=complete --timeout=10m job/$JOB_NAME
           kubectl -n blog-dev logs job/$JOB_NAME --all-containers --tail=-1 || true
           kubectl -n blog-dev delete job $JOB_NAME --ignore-not-found=true
 
