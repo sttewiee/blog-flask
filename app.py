@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, redirect, url_for, request, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from prometheus_flask_exporter import PrometheusMetrics
 
 # Инициализация расширений
 db = SQLAlchemy()
@@ -32,6 +33,11 @@ def create_app():
 
     # Инициализация расширений
     db.init_app(app)
+    
+    # Инициализация Prometheus метрик
+    metrics = PrometheusMetrics(app)
+    # Добавляем метрики по умолчанию
+    metrics.info('flask_blog_info', 'Flask Blog Application Info', version=__version__)
 
     # Health check endpoints
     @app.route('/health')
@@ -142,4 +148,4 @@ def create_app():
     return app
 
 # Версия приложения
-__version__ = '2.0.2'
+__version__ = '2.1.0'

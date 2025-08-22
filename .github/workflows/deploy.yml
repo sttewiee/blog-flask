@@ -193,6 +193,18 @@ jobs:
       - name: Wait for PostgreSQL to be ready
         run: kubectl -n blog-dev rollout status deployment/postgres --timeout=8m
 
+      - name: Deploy monitoring stack
+        run: |
+          kubectl apply -f k8s/monitoring-namespace.yaml
+          kubectl apply -f k8s/prometheus.yaml
+          kubectl apply -f k8s/grafana.yaml
+          kubectl apply -f k8s/grafana-ingress.yaml
+
+      - name: Wait for monitoring stack to be ready
+        run: |
+          kubectl -n monitoring rollout status deployment/prometheus --timeout=5m
+          kubectl -n monitoring rollout status deployment/grafana --timeout=5m
+
       - name: Clean up old deployments
         run: |
           # Delete old pods with Cloud SQL Proxy

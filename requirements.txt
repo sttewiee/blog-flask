@@ -4,3 +4,4 @@ Werkzeug==3.0.1
 psycopg2-binary
 pytest==8.4.1
 pytest-cov==6.2.1
+prometheus-flask-exporter==0.23.0
