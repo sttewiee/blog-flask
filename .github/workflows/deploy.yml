@@ -154,20 +154,10 @@ jobs:
       - name: Check required GitHub secrets
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          CLOUDSQL_KEY_JSON: ${{ secrets.CLOUDSQL_KEY_JSON }}
         run: |
           set -eu
           if [ -z "${SECRET_KEY:-}" ]; then
             echo "Missing SECRET_KEY"
-            exit 1
-          fi
-          if [ -z "${DATABASE_URL:-}" ]; then
-            echo "Missing DATABASE_URL"
-            exit 1
-          fi
-          if [ -z "${CLOUDSQL_KEY_JSON:-}" ]; then
-            echo "Missing CLOUDSQL_KEY_JSON"
             exit 1
           fi
 
@@ -186,24 +176,20 @@ jobs:
       - name: Create/Update app secret (blog-secrets)
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           kubectl -n blog-dev create secret generic blog-secrets \
             --from-literal=SECRET_KEY="${SECRET_KEY}" \
-            --from-literal=DATABASE_URL="${DATABASE_URL}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Create/Update Cloud SQL key secret
-        env:
-          CLOUDSQL_KEY_JSON: ${{ secrets.CLOUDSQL_KEY_JSON }}
-        run: |
-          printf '%s' "$CLOUDSQL_KEY_JSON" > /tmp/credentials.json
-          kubectl -n blog-dev create secret generic cloudsql-instance-credentials \
-            --from-file=credentials.json=/tmp/credentials.json \
+            --from-literal=DATABASE_URL="postgresql://postgres:postgres123@postgres-service:5432/blog" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply ClusterIssuer (cert-manager)
         run: kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
+
+      - name: Apply PostgreSQL deployment
+        run: kubectl apply -f k8s/postgres.yaml
+
+      - name: Wait for PostgreSQL to be ready
+        run: kubectl -n blog-dev rollout status deployment/postgres --timeout=5m
 
       - name: Apply base manifests (Service, Deployment, Ingress)
         run: |
