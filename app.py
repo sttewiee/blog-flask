@@ -51,6 +51,23 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
 
     # --- Регистрируем роуты (Blueprint'ы - лучший способ, но пока так) ----
+    
+    # Health check endpoint для Kubernetes
+    @app.route('/health')
+    def health():
+        """Простой health check endpoint без зависимости от БД"""
+        return {'status': 'ok', 'version': __version__}, 200
+    
+    @app.route('/health/db')
+    def health_db():
+        """Health check с проверкой базы данных"""
+        try:
+            # Простой запрос к БД для проверки подключения
+            db.session.execute(db.text('SELECT 1'))
+            return {'status': 'ok', 'database': 'connected', 'version': __version__}, 200
+        except Exception as e:
+            return {'status': 'error', 'database': 'disconnected', 'error': str(e)}, 503
+    
     @app.route('/')
     def home():
         posts = Post.query.order_by(Post.id.desc()).all()
@@ -135,4 +152,4 @@ def create_app(config_name=None):
     return app
 
 # Версия приложения для отслеживания деплоев
-__version__ = '1.0.5'
+__version__ = '1.0.6'
