@@ -45,26 +45,35 @@ def create_app():
     
     @app.route('/')
     def home():
-        posts = Post.query.order_by(Post.id.desc()).all()
-        return render_template('index.html', posts=posts)
+        try:
+            posts = Post.query.order_by(Post.id.desc()).all()
+            return render_template('index.html', posts=posts)
+        except Exception as e:
+            app.logger.error(f'Home error: {e}')
+            return render_template('index.html', posts=[])
 
     @app.route('/register', methods=['GET', 'POST'])
     def register():
-        if request.method == 'POST':
-            username = request.form['username']
-            password = request.form['password']
+        try:
+            if request.method == 'POST':
+                username = request.form['username']
+                password = request.form['password']
+                
+                if User.query.filter_by(username=username).first():
+                    flash('Пользователь уже существует')
+                    return redirect(url_for('register'))
+                
+                user = User(username=username, password=generate_password_hash(password))
+                db.session.add(user)
+                db.session.commit()
+                flash('Регистрация успешна. Войдите.')
+                return redirect(url_for('login'))
             
-            if User.query.filter_by(username=username).first():
-                flash('Пользователь уже существует')
-                return redirect(url_for('register'))
-            
-            user = User(username=username, password=generate_password_hash(password))
-            db.session.add(user)
-            db.session.commit()
-            flash('Регистрация успешна. Войдите.')
-            return redirect(url_for('login'))
-        
-        return render_template('register.html')
+            return render_template('register.html')
+        except Exception as e:
+            app.logger.error(f'Registration error: {e}')
+            flash('Ошибка регистрации. Попробуйте позже.')
+            return redirect(url_for('home'))
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
@@ -138,4 +147,4 @@ def create_app():
 
     return app
 
-__version__ = '2.6.1'
+__version__ = '2.6.2'

@@ -20,11 +20,24 @@ fi
 # Инициализация базы данных
 echo "🗄️ Инициализация базы данных..."
 python -c "
+import time
 from app import create_app, db
+
 app = create_app()
 with app.app_context():
-    db.create_all()
-    print('✅ Таблицы готовы')
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            db.create_all()
+            print('✅ Таблицы готовы')
+            break
+        except Exception as e:
+            print(f'⚠️ Попытка {attempt + 1}/{max_retries}: {e}')
+            if attempt < max_retries - 1:
+                time.sleep(5)
+            else:
+                print('❌ Не удалось создать таблицы')
+                raise e
 "
 
 echo "✅ Приложение готово к запуску!"
