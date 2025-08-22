@@ -152,4 +152,4 @@ def create_app(config_name=None):
     return app
 
 # Версия приложения для отслеживания деплоев
-__version__ = '1.0.8'
+__version__ = '1.0.9'

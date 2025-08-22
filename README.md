@@ -62,39 +62,67 @@ blog-flask/
 
 ## Продакшн развертывание
 
-### GitHub Secrets
+### Предварительные требования
 
-Настройте следующие секреты в вашем GitHub репозитории:
+1. **GCP проект** с включенными API:
+   - Container Registry API
+   - Kubernetes Engine API 
+   - Artifact Registry API
 
-- `SECRET_KEY` - секретный ключ Flask
-- `CLOUDSQL_KEY_JSON` - JSON ключ для Cloud SQL
-- `GAR_EMAIL` - email для Artifact Registry
+2. **Workload Identity настроен** для GitHub Actions (см. детали ниже)
 
-### Автоматическое развертывание
+3. **GitHub Secrets** в репозитории:
+   - `SECRET_KEY` - секретный ключ Flask
+   - `GAR_EMAIL` - email для Artifact Registry
 
-При пуше в ветку `main` автоматически:
+### Быстрое развертывание
 
-1. Запускаются тесты
-2. Собирается Docker образ
-3. Образ пушится в Artifact Registry
-4. Развертывается в GKE кластер
-5. Настраивается Load Balancer
+1. **Форкните репозиторий**
+2. **Обновите PROJECT_ID** в `.github/workflows/deploy.yml`
+3. **Добавьте GitHub Secrets**
+4. **Push в main ветку** - все остальное происходит автоматически!
 
-### Ручное развертывание
+### Настройка Workload Identity (один раз)
 
 ```bash
-# Аутентификация в GCP
-gcloud auth login
+# 1. Создайте Workload Identity Pool
+gcloud iam workload-identity-pools create "github-pool" \
+  --project="YOUR-PROJECT-ID" \
+  --location="global"
 
-# Настройка проекта
-gcloud config set project YOUR_PROJECT_ID
+# 2. Создайте Provider  
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+  --project="YOUR-PROJECT-ID" \
+  --location="global" \
+  --workload-identity-pool="github-pool" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --issuer-uri="https://token.actions.githubusercontent.com"
 
-# Получение credentials для кластера
-gcloud container clusters get-credentials blog-gke --zone europe-west4-b
+# 3. Создайте Service Account
+gcloud iam service-accounts create github-actions-deployer \
+  --project="YOUR-PROJECT-ID"
 
-# Применение манифестов
-kubectl apply -f k8s/
+# 4. Назначьте роли
+gcloud projects add-iam-policy-binding YOUR-PROJECT-ID \
+  --member="serviceAccount:github-actions-deployer@YOUR-PROJECT-ID.iam.gserviceaccount.com" \
+  --role="roles/container.developer"
 ```
+
+### Что происходит автоматически
+
+GitHub Actions workflow:
+
+1. ✅ **Тестирование** - запуск pytest
+2. ✅ **Инфраструктура** - создание GKE кластера (если нет)
+3. ✅ **Сборка** - Docker образ в Artifact Registry
+4. ✅ **База данных** - PostgreSQL в кластере
+5. ✅ **Приложение** - Flask с health checks
+6. ✅ **Сеть** - Load Balancer + Ingress
+
+### Health Check Endpoints
+
+- `/health` - статус приложения
+- `/health/db` - проверка подключения к БД
 
 ## API Endpoints
 

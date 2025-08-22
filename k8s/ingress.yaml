@@ -6,16 +6,27 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
 spec:
   tls:
   - hosts:
     - blog.yourdomain.com
     secretName: flask-blog-tls
   rules:
+  # Правило для домена
   - host: blog.yourdomain.com
     http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: flask-blog-service
+            port:
+              number: 80
+  # Правило для доступа по IP (без host)
+  - http:
       paths:
       - path: /
         pathType: Prefix
