@@ -88,7 +88,7 @@ spec:
   ports:
   - port: 9090
     targetPort: 9090
-  type: ClusterIP
+  type: LoadBalancer
 
 ---
 # Простая Grafana
@@ -143,6 +143,6 @@ spec:
   ports:
   - port: 3000
     targetPort: 3000
-  type: ClusterIP
+  type: LoadBalancer
 
 
