@@ -3,8 +3,10 @@ kind: Deployment
 metadata:
   name: flask-blog
   namespace: blog-dev
+  labels:
+    app: flask-blog
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: flask-blog
@@ -13,65 +15,42 @@ spec:
       labels:
         app: flask-blog
     spec:
-      imagePullSecrets:
-        - name: regcred
       containers:
-        - name: flask-blog
-          image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:latest
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 5000
-          env:
-            - name: FLASK_ENV
-              value: "production"
-            - name: DATABASE_URL
-              value: "postgresql://bloguser:blogpassword@localhost:5432/blogdb"
-            - name: SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: blog-secrets
-                  key: SECRET_KEY
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 5000
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /
-              port: 5000
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
-
-        - name: cloud-sql-proxy
-          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.4
-          args:
-            - "--port=5432"
-            - "--credentials-file=/secrets/credentials.json"
-            - "sonic-harbor-465608-v1:europe-west4:blog-db"
-          volumeMounts:
-            - name: cloudsql-instance-credentials
-              mountPath: /secrets
-              readOnly: true
-          securityContext:
-            runAsNonRoot: true
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "64Mi"
-            limits:
-              cpu: "200m"
-              memory: "128Mi"
-
-      volumes:
-        - name: cloudsql-instance-credentials
-          secret:
-            secretName: cloudsql-instance-credentials
+      - name: flask-blog
+        image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: blog-secrets
+              key: DATABASE_URL
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: blog-secrets
+              key: SECRET_KEY
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: regcred

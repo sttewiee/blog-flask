@@ -12,7 +12,6 @@ COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 COPY . .
-COPY VERSION /app/VERSION
 
 # Создаем пользователя и даем права
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
