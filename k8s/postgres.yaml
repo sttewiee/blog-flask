@@ -17,7 +17,7 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: Recreate  # Важно для PVC - только один pod может использовать ReadWriteOnce
+    type: Recreate
   selector:
     matchLabels:
       app: postgres

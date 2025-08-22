@@ -1,6 +1,4 @@
-# Упрощенный мониторинг в том же namespace что и приложение
 ---
-# Простая конфигурация Prometheus
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -91,7 +89,6 @@ spec:
   type: LoadBalancer
 
 ---
-# Простая Grafana
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -152,5 +149,3 @@ spec:
   - port: 3000
     targetPort: 3000
   type: LoadBalancer
-
-

@@ -36,7 +36,7 @@ jobs:
           export FLASK_ENV="testing"
           python -m pytest -v --cov=app --cov-report=xml || true
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
@@ -76,7 +76,6 @@ jobs:
         run: |
           IMAGE=${{ env.IMAGE_REPO }}:${{ github.sha }}
           LATEST_IMAGE=${{ env.IMAGE_REPO }}:latest
-          # Clean up old images to force rebuild
           docker system prune -f
           docker build --no-cache -t $IMAGE -t $LATEST_IMAGE .
           docker push $IMAGE
@@ -110,7 +109,7 @@ jobs:
       - name: Enable GKE auth plugin
         run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
-      - name: Ensure GKE cluster exists (idempotent)
+      - name: Ensure GKE cluster exists
         run: |
           set -e
           if ! gcloud container clusters describe "$CLUSTER" --zone "$ZONE" --project "$PROJECT_ID" >/dev/null 2>&1; then
@@ -132,7 +131,7 @@ jobs:
           kubectl get ns monitoring || kubectl create ns monitoring
           if [ -f k8s/namespace.yaml ]; then kubectl apply -f k8s/namespace.yaml; fi
 
-      - name: Install/upgrade ingress-nginx (cloud)
+      - name: Install ingress-nginx
         run: |
           kubectl get ns ingress-nginx || kubectl create ns ingress-nginx
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
@@ -140,7 +139,7 @@ jobs:
       - name: Wait for ingress-nginx
         run: kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=5m
 
-      - name: Install/upgrade cert-manager (with CRDs)
+      - name: Install cert-manager
         run: |
           kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.crds.yaml
           kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
@@ -151,7 +150,7 @@ jobs:
           kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
           kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
 
-      - name: Check required GitHub secrets
+      - name: Check secrets
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
@@ -161,7 +160,7 @@ jobs:
             exit 1
           fi
 
-      - name: Create/Update Artifact Registry pull secret (regcred)
+      - name: Create secrets
         env:
           GAR_EMAIL: ${{ secrets.GAR_EMAIL }}
         run: |
@@ -172,51 +171,35 @@ jobs:
             --docker-password="$TOKEN" \
             --docker-email="${GAR_EMAIL:-actions@example.com}" \
             --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Create/Update app secret (blog-secrets)
-        env:
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        run: |
           kubectl -n blog-dev create secret generic blog-secrets \
             --from-literal=SECRET_KEY="${SECRET_KEY}" \
             --from-literal=DATABASE_URL="postgresql://postgres:postgres123@postgres-service:5432/blog" \
             --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Apply ClusterIssuer (cert-manager)
-        run: kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
+          kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
 
       - name: Apply PostgreSQL deployment
-        run: |
-          # Apply the PostgreSQL configuration
-          kubectl apply -f k8s/postgres.yaml
+        run: kubectl apply -f k8s/postgres.yaml
 
       - name: Wait for PostgreSQL to be ready
         run: kubectl -n blog-dev rollout status deployment/postgres --timeout=8m
 
-      - name: Deploy monitoring (optional)
-        run: |
-          kubectl apply -f k8s/monitoring.yaml || echo "Monitoring optional"
+      - name: Deploy monitoring
+        run: kubectl apply -f k8s/monitoring.yaml || echo "Monitoring optional"
 
       - name: Clean up old deployments
         run: |
-          # Delete old pods with Cloud SQL Proxy
           kubectl delete pods -n blog-dev -l app=flask-blog --force --grace-period=0 || true
-          # Clean up any old replica sets
           kubectl delete rs -n blog-dev -l app=flask-blog || true
 
-      - name: Deploy main application
+      - name: Deploy application
         run: |
           kubectl apply -f k8s/service.yaml
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
-
-      - name: Force recreate deployment
-        run: |
           kubectl rollout restart deployment/flask-blog -n blog-dev
 
-      - name: Wait for deployment rollout
-        run: |
-          kubectl -n blog-dev rollout status deployment/flask-blog --timeout=10m
+      - name: Wait for deployment
+        run: kubectl -n blog-dev rollout status deployment/flask-blog --timeout=10m
 
       - name: Verify deployment
         run: |
@@ -224,7 +207,7 @@ jobs:
           kubectl -n blog-dev get services
           kubectl -n blog-dev get ingress
 
-      - name: Show pod logs on failure
+      - name: Show logs on failure
         if: failure()
         run: |
           kubectl -n blog-dev get pods -o wide || true

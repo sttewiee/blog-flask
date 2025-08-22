@@ -4,11 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from prometheus_flask_exporter import PrometheusMetrics
 
-# Инициализация расширений
 db = SQLAlchemy()
 
-
-# Модели базы данных
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
@@ -23,23 +20,17 @@ class Post(db.Model):
 
 
 def create_app():
-    """Создание Flask приложения."""
     app = Flask(__name__)
 
-    # Конфигурация
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///blog.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key')
 
-    # Инициализация расширений
     db.init_app(app)
     
-    # Инициализация Prometheus метрик
     metrics = PrometheusMetrics(app)
-    # Добавляем метрики по умолчанию
     metrics.info('flask_blog_info', 'Flask Blog Application Info', version=__version__)
 
-    # Health check endpoints
     @app.route('/health')
     def health():
         return {'status': 'ok', 'version': __version__}
@@ -147,5 +138,4 @@ def create_app():
 
     return app
 
-# Версия приложения
-__version__ = '2.5.1'
+__version__ = '2.6.1'

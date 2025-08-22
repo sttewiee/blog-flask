@@ -14,7 +14,6 @@ spec:
     - blog.yourdomain.com
     secretName: flask-blog-tls
   rules:
-  # Правило для домена
   - host: blog.yourdomain.com
     http:
       paths:
@@ -25,17 +24,6 @@ spec:
             name: flask-blog-service
             port:
               number: 80
-  # Правило для прямого IP доступа
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: flask-blog-service
-            port:
-              number: 80
-  # Правило для доступа по IP (без host)
   - http:
       paths:
       - path: /
