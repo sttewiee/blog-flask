@@ -1,12 +1,12 @@
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: postgres-config
+  name: postgres-secret
   namespace: blog-dev
+type: Opaque
 data:
-  POSTGRES_DB: blog
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: postgres123
+  # postgres123 в base64
+  POSTGRES_PASSWORD: cG9zdGdyZXMxMjM=
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -40,9 +40,18 @@ spec:
         image: postgres:15
         ports:
         - containerPort: 5432
-        envFrom:
-        - configMapRef:
-            name: postgres-config
+        env:
+        - name: POSTGRES_DB
+          value: "blog"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
@@ -63,6 +72,8 @@ spec:
             - blog
           initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
         readinessProbe:
           exec:
             command:
@@ -71,8 +82,10 @@ spec:
             - postgres
             - -d
             - blog
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
       volumes:
       - name: postgres-storage
         persistentVolumeClaim:

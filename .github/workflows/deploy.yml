@@ -186,10 +186,19 @@ jobs:
         run: kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
 
       - name: Apply PostgreSQL deployment
-        run: kubectl apply -f k8s/postgres.yaml
+        run: |
+          # Apply the PostgreSQL configuration
+          kubectl apply -f k8s/postgres.yaml
 
       - name: Wait for PostgreSQL to be ready
-        run: kubectl -n blog-dev rollout status deployment/postgres --timeout=5m
+        run: kubectl -n blog-dev rollout status deployment/postgres --timeout=8m
+
+      - name: Clean up old deployments
+        run: |
+          # Delete old pods with Cloud SQL Proxy
+          kubectl delete pods -n blog-dev -l app=flask-blog --force --grace-period=0 || true
+          # Clean up any old replica sets
+          kubectl delete rs -n blog-dev -l app=flask-blog || true
 
       - name: Apply base manifests (Service, Deployment, Ingress)
         run: |
@@ -197,9 +206,8 @@ jobs:
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
 
-      - name: Force recreate pods with new secrets
+      - name: Force recreate deployment
         run: |
-          kubectl delete pods -n blog-dev -l app=flask-blog --force --grace-period=0 || true
           kubectl rollout restart deployment/flask-blog -n blog-dev
 
       - name: Wait for deployment rollout
