@@ -16,6 +16,8 @@ metadata:
   namespace: blog-dev
 spec:
   replicas: 1
+  strategy:
+    type: Recreate  # Важно для PVC - только один pod может использовать ReadWriteOnce
   selector:
     matchLabels:
       app: postgres
