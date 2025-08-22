@@ -63,11 +63,21 @@ def create_app():
                 db_status = 'disconnected'
                 db_error = str(e)
             
+            # Проверяем доступность шаблонов
+            import os
+            templates_available = []
+            templates_dir = app.template_folder
+            if os.path.exists(templates_dir):
+                for file in os.listdir(templates_dir):
+                    if file.endswith('.html'):
+                        templates_available.append(file)
+            
             return {
                 'app_version': __version__,
                 'database': db_status,
                 'database_error': db_error,
                 'templates_dir': app.template_folder,
+                'templates_available': templates_available,
                 'static_dir': app.static_folder,
                 'environment': os.environ.get('FLASK_ENV', 'unknown')
             }
@@ -108,7 +118,13 @@ def create_app():
                 return redirect(url_for('login'))
             
             app.logger.info('Rendering register template')
-            return render_template('register.html')
+            try:
+                return render_template('register.html')
+            except Exception as template_error:
+                app.logger.error(f'Template rendering error: {template_error}')
+                app.logger.error(f'Template error type: {type(template_error)}')
+                app.logger.error(f'Available templates: {app.template_folder}')
+                raise template_error
             
         except Exception as e:
             app.logger.error(f'Registration error: {e}')
@@ -198,4 +214,4 @@ def create_app():
 
     return app
 
-__version__ = '2.6.3'
+__version__ = '2.6.4'
