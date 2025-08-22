@@ -218,6 +218,13 @@ jobs:
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
 
+      - name: Apply autoscaling and security policies
+        run: |
+          kubectl apply -f k8s/hpa.yaml
+          kubectl apply -f k8s/network-policy.yaml
+          kubectl apply -f k8s/backup.yaml
+          kubectl apply -f k8s/logging.yaml || echo "Logging setup optional"
+
       - name: Force recreate deployment
         run: |
           kubectl rollout restart deployment/flask-blog -n blog-dev

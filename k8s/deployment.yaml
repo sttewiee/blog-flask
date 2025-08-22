@@ -19,6 +19,10 @@ spec:
         prometheus.io/port: "5000"
         prometheus.io/path: "/metrics"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
       - name: flask-blog
         image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:latest
@@ -39,11 +43,19 @@ spec:
               key: SECRET_KEY
         resources:
           requests:
-            memory: 128Mi
-            cpu: 100m
-          limits:
             memory: 256Mi
             cpu: 200m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
         livenessProbe:
           httpGet:
             path: /health
