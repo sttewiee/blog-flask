@@ -211,6 +211,11 @@ jobs:
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
 
+      - name: Force recreate pods with new secrets
+        run: |
+          kubectl delete pods -n blog-dev -l app=flask-blog --force --grace-period=0 || true
+          kubectl rollout restart deployment/flask-blog -n blog-dev
+
       - name: Wait for deployment rollout
         run: |
           kubectl -n blog-dev rollout status deployment/flask-blog --timeout=10m
