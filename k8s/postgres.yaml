@@ -7,7 +7,7 @@ spec:
   accessModes: [ReadWriteOnce]
   resources:
     requests:
-      storage: 10Gi
+      storage: 5Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -48,11 +48,11 @@ spec:
           mountPath: /var/lib/postgresql/data
         resources:
           requests:
-            memory: 256Mi
-            cpu: 100m
+            memory: 128Mi
+            cpu: 50m
           limits:
-            memory: 512Mi
-            cpu: 500m
+            memory: 256Mi
+            cpu: 200m
         livenessProbe:
           exec:
             command: [pg_isready, -U, postgres, -d, blog]

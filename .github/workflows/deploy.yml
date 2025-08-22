@@ -193,17 +193,9 @@ jobs:
       - name: Wait for PostgreSQL to be ready
         run: kubectl -n blog-dev rollout status deployment/postgres --timeout=8m
 
-      - name: Deploy monitoring stack
+      - name: Deploy monitoring (optional)
         run: |
-          kubectl apply -f k8s/monitoring-namespace.yaml
-          kubectl apply -f k8s/prometheus.yaml
-          kubectl apply -f k8s/grafana.yaml
-          kubectl apply -f k8s/grafana-ingress.yaml
-
-      - name: Wait for monitoring stack to be ready
-        run: |
-          kubectl -n monitoring rollout status deployment/prometheus --timeout=5m
-          kubectl -n monitoring rollout status deployment/grafana --timeout=5m
+          kubectl apply -f k8s/monitoring.yaml || echo "Monitoring optional"
 
       - name: Clean up old deployments
         run: |
@@ -212,18 +204,11 @@ jobs:
           # Clean up any old replica sets
           kubectl delete rs -n blog-dev -l app=flask-blog || true
 
-      - name: Apply base manifests (Service, Deployment, Ingress)
+      - name: Deploy main application
         run: |
           kubectl apply -f k8s/service.yaml
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
-
-      - name: Apply autoscaling and security policies
-        run: |
-          kubectl apply -f k8s/hpa.yaml
-          kubectl apply -f k8s/network-policy.yaml
-          kubectl apply -f k8s/backup.yaml
-          kubectl apply -f k8s/logging.yaml || echo "Logging setup optional"
 
       - name: Force recreate deployment
         run: |
