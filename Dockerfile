@@ -2,25 +2,23 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y gcc curl netcat-openbsd && rm -rf /var/lib/apt/lists/*
+# Установка зависимостей системы
+RUN apt-get update && apt-get install -y curl netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
+# Установка Python зависимостей
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем entrypoint скрипт до создания пользователя
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
+# Копирование приложения
 COPY . .
 
-# Создаем пользователя и даем права
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Настройка пользователя
+RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
 # Переменные окружения
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
+ENV FLASK_ENV=production
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
@@ -28,5 +26,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 EXPOSE 5000
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["python", "run.py"]

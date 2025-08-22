@@ -43,20 +43,19 @@ docker-compose up --build
 
 ```
 blog-flask/
-├── app.py                 # Основное Flask приложение
+├── app.py                 # Flask приложение с моделями и роутами
 ├── run.py                 # Скрипт запуска
-├── init_db.py            # Инициализация БД
 ├── requirements.txt       # Python зависимости
 ├── Dockerfile            # Docker образ
 ├── docker-compose.yml    # Локальная разработка
-├── docker-entrypoint.sh  # Docker entrypoint
+├── docker-entrypoint.sh  # Docker entrypoint с инициализацией БД
 ├── k8s/                  # Kubernetes манифесты
-│   ├── namespace.yaml
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── ingress.yaml
+│   ├── postgres.yaml     # PostgreSQL deployment
+│   ├── deployment.yaml   # Flask приложение
+│   ├── service.yaml      # Сервисы
+│   ├── ingress.yaml      # Ingress с SSL
 │   └── clusterissuer-letsencrypt.yaml
-└── .github/workflows/    # GitHub Actions
+└── .github/workflows/    # CI/CD
     └── deploy.yml
 ```
 
@@ -153,14 +152,8 @@ pip freeze > requirements.txt
 python -m pytest
 ```
 
-### Миграции базы данных
+### Инициализация базы данных
 
-```bash
-flask db init
-flask db migrate -m "Description"
-flask db upgrade
-```
+База данных автоматически инициализируется при запуске через docker-entrypoint.sh
 
-## Лицензия
 
-MIT
