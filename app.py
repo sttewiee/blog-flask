@@ -142,4 +142,4 @@ def create_app():
     return app
 
 # Версия приложения
-__version__ = '2.0.1'
+__version__ = '2.0.2'

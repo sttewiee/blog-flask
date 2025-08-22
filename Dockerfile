@@ -12,8 +12,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копирование приложения
 COPY . .
 
-# Настройка пользователя
-RUN useradd -m appuser && chown -R appuser:appuser /app
+# Настройка прав и пользователя
+RUN chmod +x docker-entrypoint.sh && \
+    useradd -m appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
 # Переменные окружения
