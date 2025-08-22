@@ -31,6 +31,15 @@ def create_app():
     metrics = PrometheusMetrics(app)
     metrics.info('flask_blog_info', 'Flask Blog Application Info', version=__version__)
 
+    # Инициализация БД при старте
+    with app.app_context():
+        try:
+            db.create_all()
+            app.logger.info('Database tables created successfully')
+        except Exception as e:
+            app.logger.error(f'Failed to create database tables: {e}')
+            app.logger.info('Continuing without database initialization')
+
     @app.route('/health')
     def health():
         return {'status': 'ok', 'version': __version__}
@@ -41,7 +50,29 @@ def create_app():
             db.session.execute(db.text('SELECT 1'))
             return {'status': 'ok', 'database': 'connected'}
         except Exception as e:
-            return {'status': 'error', 'database': 'disconnected'}, 503
+            return {'status': 'error', 'database': 'disconnected', 'error': str(e)}, 503
+
+    @app.route('/debug')
+    def debug():
+        try:
+            db_status = 'connected'
+            db_error = None
+            try:
+                db.session.execute(db.text('SELECT 1'))
+            except Exception as e:
+                db_status = 'disconnected'
+                db_error = str(e)
+            
+            return {
+                'app_version': __version__,
+                'database': db_status,
+                'database_error': db_error,
+                'templates_dir': app.template_folder,
+                'static_dir': app.static_folder,
+                'environment': os.environ.get('FLASK_ENV', 'unknown')
+            }
+        except Exception as e:
+            return {'error': str(e)}, 500
     
     @app.route('/')
     def home():
@@ -54,10 +85,17 @@ def create_app():
 
     @app.route('/register', methods=['GET', 'POST'])
     def register():
+        app.logger.info(f'Register route accessed: {request.method}')
+        
         try:
+            # Проверяем подключение к БД
+            db.session.execute(db.text('SELECT 1'))
+            app.logger.info('Database connection OK')
+            
             if request.method == 'POST':
                 username = request.form['username']
                 password = request.form['password']
+                app.logger.info(f'Processing registration for user: {username}')
                 
                 if User.query.filter_by(username=username).first():
                     flash('Пользователь уже существует')
@@ -69,11 +107,24 @@ def create_app():
                 flash('Регистрация успешна. Войдите.')
                 return redirect(url_for('login'))
             
+            app.logger.info('Rendering register template')
             return render_template('register.html')
+            
         except Exception as e:
             app.logger.error(f'Registration error: {e}')
-            flash('Ошибка регистрации. Попробуйте позже.')
-            return redirect(url_for('home'))
+            app.logger.error(f'Error type: {type(e)}')
+            app.logger.error(f'Error details: {str(e)}')
+            
+            # Fallback - показываем простую страницу без шаблона
+            return f'''
+            <html>
+            <body>
+                <h1>Регистрация</h1>
+                <p>Временно недоступно. Попробуйте позже.</p>
+                <a href="/">На главную</a>
+            </body>
+            </html>
+            ''', 200
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
@@ -147,4 +198,4 @@ def create_app():
 
     return app
 
-__version__ = '2.6.2'
+__version__ = '2.6.3'
