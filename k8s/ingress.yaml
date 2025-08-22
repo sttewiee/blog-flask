@@ -25,6 +25,30 @@ spec:
             name: flask-blog-service
             port:
               number: 80
+  # Правило для прямого IP доступа (включая мониторинг)
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: flask-blog-service
+            port:
+              number: 80
+      - path: /grafana
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana-simple-service
+            port:
+              number: 3000
+      - path: /prometheus
+        pathType: Prefix
+        backend:
+          service:
+            name: prometheus-simple-service
+            port:
+              number: 9090
   # Правило для доступа по IP (без host)
   - http:
       paths:

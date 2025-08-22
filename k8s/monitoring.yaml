@@ -1,18 +1,11 @@
-# Упрощенный мониторинг для ограниченных ресурсов
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: monitoring
-  labels:
-    name: monitoring
-
+# Упрощенный мониторинг в том же namespace что и приложение
 ---
 # Простая конфигурация Prometheus
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-simple-config
-  namespace: monitoring
+  namespace: blog-dev
 data:
   prometheus.yml: |
     global:
@@ -34,7 +27,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-simple
-  namespace: monitoring
+  namespace: blog-dev
 spec:
   replicas: 1
   selector:
@@ -88,7 +81,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-simple-service
-  namespace: monitoring
+  namespace: blog-dev
 spec:
   selector:
     app: prometheus-simple
@@ -103,7 +96,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana-simple
-  namespace: monitoring
+  namespace: blog-dev
 spec:
   replicas: 1
   selector:
@@ -143,7 +136,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana-simple-service
-  namespace: monitoring
+  namespace: blog-dev
 spec:
   selector:
     app: grafana-simple
@@ -152,30 +145,4 @@ spec:
     targetPort: 3000
   type: ClusterIP
 
----
-# Ingress для доступа к Grafana и Prometheus
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: monitoring-ingress
-  namespace: monitoring
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /grafana
-        pathType: Prefix
-        backend:
-          service:
-            name: grafana-simple-service
-            port:
-              number: 3000
-      - path: /prometheus
-        pathType: Prefix
-        backend:
-          service:
-            name: prometheus-simple-service
-            port:
-              number: 9090
+
