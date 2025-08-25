@@ -216,12 +216,16 @@ jobs:
         sed -i "s|namespace: blog-dev|namespace: blog-prod|g" k8s/deployment.yaml
         sed -i "s|namespace: blog-dev|namespace: blog-prod|g" k8s/service.yaml
         
-        # Apply manifests
+        # Force delete existing deployment (same as DEV)
+        kubectl delete deployment flask-blog -n blog-prod --ignore-not-found=true
+        kubectl delete pods -l app=flask-blog -n blog-prod --ignore-not-found=true
+        
+        # Apply manifests fresh
         kubectl apply -f k8s/deployment.yaml -n blog-prod
         kubectl apply -f k8s/service.yaml -n blog-prod
         
-        # Wait for deployment with extended timeout  
-        kubectl rollout status deployment/flask-blog -n blog-prod --timeout=600s
+        # Wait for deployment
+        kubectl rollout status deployment/flask-blog -n blog-prod --timeout=300s
         
         # Show status
         kubectl get pods -n blog-prod
