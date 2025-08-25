@@ -28,8 +28,10 @@ def create_app():
 
     db.init_app(app)
     
-    metrics = PrometheusMetrics(app)
-    metrics.info('flask_blog_info', 'Flask Blog Application Info', version=__version__)
+    # Отключаем метрики в тестовом режиме
+    if app.config.get('FLASK_ENV') != 'testing':
+        metrics = PrometheusMetrics(app)
+        metrics.info('flask_blog_info', 'Flask Blog Application Info', version=__version__)
 
     # Инициализация БД при старте
     with app.app_context():
