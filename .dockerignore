@@ -26,6 +26,5 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
-instance/
 .DS_Store
 Thumbs.db 

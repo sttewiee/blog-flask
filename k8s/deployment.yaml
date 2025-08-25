@@ -25,14 +25,14 @@ spec:
         fsGroup: 1000
       containers:
       - name: flask-blog
-        image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:working
+        image: gcr.io/sonic-harbor-465608-v1/blog-flask:latest
         ports:
         - containerPort: 5000
         env:
         - name: FLASK_ENV
           value: "production"
         - name: DATABASE_URL
-          value: "sqlite:///:memory:"
+          value: "postgresql://postgres:postgres@postgres-service:5432/postgres"
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:

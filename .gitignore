@@ -4,6 +4,9 @@ __pycache__/
 venv/
 .env
 
+# GCP
+key.json
+
 # Terraform
 blog-infra/service-account.json
 blog-infra/.terraform/

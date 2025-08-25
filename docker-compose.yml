@@ -14,7 +14,6 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
-      - ./instance:/app/instance
     restart: unless-stopped
     command: python run.py
     healthcheck:

@@ -1,215 +1,38 @@
-name: CI/CD Pipeline
+name: Deploy to GCP
 
-'on':
+on:
   push:
-    branches: [ 'main', 'develop' ]
-  pull_request:
-    branches: [ 'main' ]
+    branches: [ main ]
 
 env:
   PROJECT_ID: sonic-harbor-465608-v1
   REGION: europe-west4
-  ZONE: europe-west4-b
-  CLUSTER: blog-gke
-  IMAGE_REPO: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog
+  CLUSTER_NAME: blog-cluster
 
 jobs:
-  test:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run tests
-        run: |
-          export DATABASE_URL="sqlite:///:memory:"
-          export SECRET_KEY="test_secret_key"
-          export FLASK_ENV="testing"
-          python -m pytest -v --cov=app --cov-report=xml || true
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
-
-  build-and-push:
-    needs: test
-    runs-on: ubuntu-22.04
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: projects/684965854112/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-actions-deployer@sonic-harbor-465608-v1.iam.gserviceaccount.com
-          create_credentials_file: true
-          export_environment_variables: true
-          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
-
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-          install_components: 'kubectl,gke-gcloud-auth-plugin'
-
-      - name: Enable GKE auth plugin
-        run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker us-docker.pkg.dev --quiet
-
-      - name: Use working image
-        run: |
-          echo "Using pre-built working image"
-
   deploy:
-    needs: build-and-push
-    runs-on: ubuntu-22.04
-    if: github.ref == 'refs/heads/main'
-    permissions:
-      id-token: write
-      contents: read
+    runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: projects/684965854112/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-actions-deployer@sonic-harbor-465608-v1.iam.gserviceaccount.com
-          create_credentials_file: true
-          export_environment_variables: true
-          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
-
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-          install_components: 'kubectl,gke-gcloud-auth-plugin'
-
-      - name: Enable GKE auth plugin
-        run: echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
-
-      - name: Ensure GKE cluster exists
-        run: |
-          set -e
-          if ! gcloud container clusters describe "$CLUSTER" --zone "$ZONE" --project "$PROJECT_ID" >/dev/null 2>&1; then
-            gcloud services enable container.googleapis.com --project "$PROJECT_ID"
-            gcloud container clusters create "$CLUSTER" \
-              --zone "$ZONE" \
-              --num-nodes 2 \
-              --machine-type e2-standard-2 \
-              --enable-ip-alias \
-              --project "$PROJECT_ID"
-          fi
-
-      - name: Get GKE credentials
-        run: gcloud container clusters get-credentials "$CLUSTER" --zone "$ZONE" --project "$PROJECT_ID"
-
-      - name: Ensure namespaces
-        run: |
-          kubectl get ns blog-dev || kubectl create ns blog-dev
-          kubectl get ns monitoring || kubectl create ns monitoring
-          if [ -f k8s/namespace.yaml ]; then kubectl apply -f k8s/namespace.yaml; fi
-
-      - name: Install ingress-nginx
-        run: |
-          kubectl get ns ingress-nginx || kubectl create ns ingress-nginx
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
-
-      - name: Wait for ingress-nginx
-        run: kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=5m
-
-      - name: Install cert-manager
-        run: |
-          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.crds.yaml
-          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
-
-      - name: Wait for cert-manager
-        run: |
-          kubectl -n cert-manager rollout status deploy/cert-manager --timeout=5m
-          kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
-          kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
-
-      - name: Check secrets
-        env:
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        run: |
-          set -eu
-          if [ -z "${SECRET_KEY:-}" ]; then
-            echo "Missing SECRET_KEY"
-            exit 1
-          fi
-
-      - name: Create secrets
-        env:
-          GAR_EMAIL: ${{ secrets.GAR_EMAIL }}
-        run: |
-          TOKEN="$(gcloud auth print-access-token)"
-          kubectl -n blog-dev create secret docker-registry regcred \
-            --docker-server=us-docker.pkg.dev \
-            --docker-username=oauth2accesstoken \
-            --docker-password="$TOKEN" \
-            --docker-email="${GAR_EMAIL:-actions@example.com}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl -n blog-dev create secret generic blog-secrets \
-            --from-literal=SECRET_KEY="${SECRET_KEY}" \
-            --from-literal=DATABASE_URL="postgresql://postgres:postgres123@postgres-service:5432/blog" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
-
-      - name: Apply PostgreSQL deployment
-        run: kubectl apply -f k8s/postgres.yaml
-
-      - name: Wait for PostgreSQL to be ready
-        run: kubectl -n blog-dev rollout status deployment/postgres --timeout=8m
-
-      - name: Deploy monitoring
-        run: kubectl apply -f k8s/monitoring.yaml || echo "Monitoring optional"
-
-      - name: Clean up old deployments
-        run: |
-          kubectl delete pods -n blog-dev -l app=flask-blog --force --grace-period=0 || true
-          kubectl delete rs -n blog-dev -l app=flask-blog || true
-
-      - name: Deploy application
-        run: |
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/ingress.yaml
-          kubectl rollout restart deployment/flask-blog -n blog-dev
-
-
-
-      - name: Wait for deployment
-        run: kubectl -n blog-dev rollout status deployment/flask-blog --timeout=10m
-
-      - name: Verify deployment
-        run: |
-          kubectl -n blog-dev get pods -o wide
-          kubectl -n blog-dev get services
-          kubectl -n blog-dev get ingress
-
-      - name: Show logs on failure
-        if: failure()
-        run: |
-          kubectl -n blog-dev get pods -o wide || true
-          for p in $(kubectl -n blog-dev get pods -l app=flask-blog -o jsonpath='{.items[*].metadata.name}'); do
-            echo "=== $p ==="
-            kubectl -n blog-dev logs "$p" --all-containers --tail=200 || true
-            kubectl -n blog-dev describe pod "$p" || true
-          done
+    - uses: actions/checkout@v4
+    
+    - name: Setup Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        export_default_credentials: true
+    
+    - name: Configure Docker for GCP
+      run: gcloud auth configure-docker
+    
+    - name: Build and push Docker image
+      run: |
+        docker build -t gcr.io/${{ env.PROJECT_ID }}/blog-flask:${{ github.sha }} .
+        docker push gcr.io/${{ env.PROJECT_ID }}/blog-flask:${{ github.sha }}
+    
+    - name: Deploy to GKE
+      run: |
+        gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
+        kubectl set image deployment/flask-blog flask-blog=gcr.io/${{ env.PROJECT_ID }}/blog-flask:${{ github.sha }} -n blog-dev
+        kubectl rollout status deployment/flask-blog -n blog-dev
