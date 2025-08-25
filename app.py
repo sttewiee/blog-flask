@@ -96,6 +96,9 @@ def create_app():
     @app.route('/register', methods=['GET', 'POST'])
     def register():
         app.logger.info(f'Register route accessed: {request.method}')
+        app.logger.info(f'Request form data: {request.form}')
+        app.logger.info(f'Database URL: {os.environ.get("DATABASE_URL", "NOT_SET")}')
+        app.logger.info(f'Secret Key: {"SET" if os.environ.get("SECRET_KEY") else "NOT_SET"}')
         
         try:
             # Проверяем подключение к БД
@@ -118,29 +121,16 @@ def create_app():
                 return redirect(url_for('login'))
             
             app.logger.info('Rendering register template')
-            try:
-                return render_template('register.html')
-            except Exception as template_error:
-                app.logger.error(f'Template rendering error: {template_error}')
-                app.logger.error(f'Template error type: {type(template_error)}')
-                app.logger.error(f'Available templates: {app.template_folder}')
-                raise template_error
+            return render_template('register.html')
             
         except Exception as e:
             app.logger.error(f'Registration error: {e}')
             app.logger.error(f'Error type: {type(e)}')
             app.logger.error(f'Error details: {str(e)}')
             
-            # Fallback - показываем простую страницу без шаблона
-            return f'''
-            <html>
-            <body>
-                <h1>Регистрация</h1>
-                <p>Временно недоступно. Попробуйте позже.</p>
-                <a href="/">На главную</a>
-            </body>
-            </html>
-            ''', 200
+            # Показываем ошибку пользователю
+            flash(f'Ошибка регистрации: {str(e)}')
+            return render_template('register.html')
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
