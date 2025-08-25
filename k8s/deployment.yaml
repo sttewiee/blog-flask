@@ -34,10 +34,7 @@ spec:
         - name: DATABASE_URL
           value: "postgresql://postgres:postgres@postgres-service:5432/postgres"
         - name: SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: blog-secrets
-              key: SECRET_KEY
+          value: "your-secret-key-here"
         resources:
           requests:
             memory: 64Mi
@@ -45,25 +42,5 @@ spec:
           limits:
             memory: 128Mi
             cpu: 100m
-        securityContext:
-          allowPrivilegeEscalation: false
-          runAsNonRoot: true
-          runAsUser: 1000
-          readOnlyRootFilesystem: false
-          capabilities:
-            drop:
-            - ALL
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 15
-          periodSeconds: 5
       imagePullSecrets:
       - name: regcred
