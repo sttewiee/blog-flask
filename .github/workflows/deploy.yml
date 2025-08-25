@@ -56,5 +56,16 @@ jobs:
     - name: Deploy to GKE
       run: |
         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
-        kubectl set image deployment/flask-blog flask-blog=gcr.io/${{ env.PROJECT_ID }}/blog-flask:${{ github.sha }} -n blog-dev
+        
+        # Создаем namespace если не существует
+        kubectl create namespace blog-dev --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Применяем базовые манифесты
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/postgres.yaml -n blog-dev
+        kubectl apply -f k8s/deployment.yaml -n blog-dev
+        kubectl apply -f k8s/service.yaml -n blog-dev
+        
+        # Обновляем образ
+        kubectl set image deployment/flask-blog flask-blog=europe-west4-docker.pkg.dev/${{ env.PROJECT_ID }}/blog-flask/blog-flask:${{ github.sha }} -n blog-dev
         kubectl rollout status deployment/flask-blog -n blog-dev
