@@ -3,7 +3,7 @@ from app import __version__
 
 def test_version():
     """Тест версии приложения"""
-    assert __version__ == '2.6.5'
+    assert __version__ == '2.7.0-dev'
 
 def test_import_app():
     """Тест импорта приложения"""
