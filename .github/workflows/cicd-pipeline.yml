@@ -312,14 +312,14 @@ jobs:
           URL="DEV URL (check pipeline logs)"
         fi
         
-        MESSAGE="✅ <b>CI/CD SUCCESS</b>
+        MESSAGE="✅ CI/CD SUCCESS
+        
+📋 Branch: $BRANCH
+🎯 Environment: $ENVIRONMENT  
+📦 Commit: ${GITHUB_SHA:0:8}
+🌐 URL: $URL
 
-📋 <b>Branch:</b> $BRANCH
-🎯 <b>Environment:</b> $ENVIRONMENT  
-📦 <b>Commit:</b> ${GITHUB_SHA:0:8}
-🌐 <b>URL:</b> $URL
-
-🎉 <b>Deployment completed successfully!</b>"
+🎉 Deployment completed successfully!"
         
         curl -s -X POST "https://api.telegram.org/bot8251627883:AAGx2cF8wSVTgXaiFM5hNIXVnM2UAlTbRMo/sendMessage" \
           -d chat_id="-4872258641" \
@@ -342,14 +342,14 @@ jobs:
           ENVIRONMENT="🔧 DEVELOPMENT"
         fi
         
-        MESSAGE="❌ <b>CI/CD FAILED</b>
+        MESSAGE="❌ CI/CD FAILED
+        
+📋 Branch: $BRANCH
+🎯 Environment: $ENVIRONMENT
+📦 Commit: ${GITHUB_SHA:0:8}
+🔗 Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-📋 <b>Branch:</b> $BRANCH
-🎯 <b>Environment:</b> $ENVIRONMENT
-📦 <b>Commit:</b> ${GITHUB_SHA:0:8}
-🔗 <b>Logs:</b> https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-⚠️ <b>Deployment failed! Check logs for details.</b>"
+⚠️ Deployment failed! Check logs for details."
         
         curl -s -X POST "https://api.telegram.org/bot8251627883:AAGx2cF8wSVTgXaiFM5hNIXVnM2UAlTbRMo/sendMessage" \
           -d chat_id="-4872258641" \
