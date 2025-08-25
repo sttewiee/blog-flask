@@ -302,15 +302,29 @@ jobs:
     - name: Notify success
       run: |
         BRANCH=${GITHUB_REF#refs/heads/}
-        MESSAGE="✅ CI/CD Pipeline SUCCESS for branch: $BRANCH"
         
-        if [[ -n "${{ secrets.TELEGRAM_TOKEN }}" && -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]]; then
-          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
-            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-            -d text="$MESSAGE"
+        # Determine environment
+        if [[ "$BRANCH" == "main" ]]; then
+          ENVIRONMENT="🚀 PRODUCTION"
+          URL="http://34.91.2.135"
         else
-          echo "$MESSAGE"
+          ENVIRONMENT="🔧 DEVELOPMENT"
+          URL="DEV URL (check pipeline logs)"
         fi
+        
+        MESSAGE="✅ <b>CI/CD SUCCESS</b>
+
+📋 <b>Branch:</b> $BRANCH
+🎯 <b>Environment:</b> $ENVIRONMENT  
+📦 <b>Commit:</b> ${GITHUB_SHA:0:8}
+🌐 <b>URL:</b> $URL
+
+🎉 <b>Deployment completed successfully!</b>"
+        
+        curl -s -X POST "https://api.telegram.org/bot8251627883:AAGx2cF8wSVTgXaiFM5hNIXVnM2UAlTbRMo/sendMessage" \
+          -d chat_id="-4872258641" \
+          -d parse_mode="HTML" \
+          -d text="$MESSAGE"
 
   notify_failure:
     runs-on: ubuntu-latest
@@ -321,12 +335,23 @@ jobs:
     - name: Notify failure
       run: |
         BRANCH=${GITHUB_REF#refs/heads/}
-        MESSAGE="❌ CI/CD Pipeline FAILED for branch: $BRANCH"
         
-        if [[ -n "${{ secrets.TELEGRAM_TOKEN }}" && -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]]; then
-          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
-            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-            -d text="$MESSAGE"
+        if [[ "$BRANCH" == "main" ]]; then
+          ENVIRONMENT="🚀 PRODUCTION"
         else
-          echo "$MESSAGE"
+          ENVIRONMENT="🔧 DEVELOPMENT"
         fi
+        
+        MESSAGE="❌ <b>CI/CD FAILED</b>
+
+📋 <b>Branch:</b> $BRANCH
+🎯 <b>Environment:</b> $ENVIRONMENT
+📦 <b>Commit:</b> ${GITHUB_SHA:0:8}
+🔗 <b>Logs:</b> https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+⚠️ <b>Deployment failed! Check logs for details.</b>"
+        
+        curl -s -X POST "https://api.telegram.org/bot8251627883:AAGx2cF8wSVTgXaiFM5hNIXVnM2UAlTbRMo/sendMessage" \
+          -d chat_id="-4872258641" \
+          -d parse_mode="HTML" \
+          -d text="$MESSAGE"
