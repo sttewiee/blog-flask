@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: flask-blog
   namespace: blog-dev
-  labels:
-    app: flask-blog
 spec:
   replicas: 1
   selector:
@@ -14,12 +12,7 @@ spec:
     metadata:
       labels:
         app: flask-blog
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "5000"
-        prometheus.io/path: "/metrics"
     spec:
-      # Упрощаем security context
       containers:
       - name: flask-blog
         image: europe-west4-docker.pkg.dev/sonic-harbor-465608-v1/blog-flask/blog-flask:latest
@@ -32,11 +25,3 @@ spec:
           value: "sqlite:///blog.db"
         - name: SECRET_KEY
           value: "your-secret-key-here"
-        resources:
-          requests:
-            memory: 128Mi
-            cpu: 100m
-          limits:
-            memory: 256Mi
-            cpu: 200m
-      # Убираем несуществующий imagePullSecrets
