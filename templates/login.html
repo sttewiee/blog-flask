@@ -26,7 +26,8 @@
         <input class="form-control mb-2" name="password" type="password" placeholder="Пароль">
         <button class="btn btn-primary" type="submit">Войти</button>
     </form>
-    <a href="{{ url_for('register') }}">Регистрация</a>
+    <a href="{{ url_for('register') }}" class="btn btn-link">Нет аккаунта? Регистрация</a>
+    <a href="{{ url_for('home') }}" class="btn btn-link">На главную</a>
 </div>
 </body>
 </html>

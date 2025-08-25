@@ -9,11 +9,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN chmod +x docker-entrypoint.sh && \
-    useradd -m appuser && \
-    chown -R appuser:appuser /app
-USER appuser
-
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=production
 
@@ -22,5 +17,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 EXPOSE 5000
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["python", "run.py"]
