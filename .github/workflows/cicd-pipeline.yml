@@ -13,8 +13,7 @@ on:
 env:
   PROJECT_ID: sonic-harbor-465608-v1
   REGION: europe-west4
-  CLUSTER_DEV: blog-cluster-dev
-  CLUSTER_PRD: blog-cluster-prd
+  CLUSTER_NAME: blog-cluster-shared
   ARTIFACT_REGISTRY: europe-west4-docker.pkg.dev
   REPOSITORY: blog-flask
 
@@ -131,22 +130,29 @@ jobs:
         gcloud components install gke-gcloud-auth-plugin
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
     
-    - name: Create or get DEV cluster
+    - name: Cleanup old clusters
       run: |
-        gcloud container clusters create ${{ env.CLUSTER_DEV }} \
+        # Delete old clusters to free up IP quota
+        gcloud container clusters delete blog-cluster --region=${{ env.REGION }} --quiet || echo "Old cluster not found"
+        gcloud container clusters delete blog-cluster-dev --region=${{ env.REGION }} --quiet || echo "DEV cluster not found"
+        gcloud container clusters delete blog-cluster-prd --region=${{ env.REGION }} --quiet || echo "PROD cluster not found"
+    
+    - name: Create shared cluster
+      run: |
+        gcloud container clusters create ${{ env.CLUSTER_NAME }} \
           --region=${{ env.REGION }} \
           --num-nodes=1 \
-          --machine-type=e2-small \
-          --disk-size=20 \
+          --machine-type=e2-micro \
+          --disk-size=15 \
           --enable-autoscaling \
           --min-nodes=1 \
           --max-nodes=2 \
-          --quiet || echo "DEV cluster already exists"
+          --quiet
     
     - name: Deploy to DEV
       run: |
         # Get cluster credentials
-        gcloud container clusters get-credentials ${{ env.CLUSTER_DEV }} --region ${{ env.REGION }}
+        gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
         # Create namespace
         kubectl create namespace blog-dev --dry-run=client -o yaml | kubectl apply -f -
@@ -192,22 +198,10 @@ jobs:
         gcloud components install gke-gcloud-auth-plugin
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
     
-    - name: Create or get PROD cluster
-      run: |
-        gcloud container clusters create ${{ env.CLUSTER_PRD }} \
-          --region=${{ env.REGION }} \
-          --num-nodes=2 \
-          --machine-type=e2-standard-2 \
-          --disk-size=30 \
-          --enable-autoscaling \
-          --min-nodes=1 \
-          --max-nodes=3 \
-          --quiet || echo "PROD cluster already exists"
-    
     - name: Deploy to PRODUCTION
       run: |
-        # Get cluster credentials
-        gcloud container clusters get-credentials ${{ env.CLUSTER_PRD }} --region ${{ env.REGION }}
+        # Get cluster credentials (same shared cluster)
+        gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
         # Create namespace
         kubectl create namespace blog-prod --dry-run=client -o yaml | kubectl apply -f -
@@ -268,7 +262,7 @@ jobs:
         sleep 30
         
         # Get cluster credentials
-        gcloud container clusters get-credentials ${{ env.CLUSTER_PRD }} --region ${{ env.REGION }}
+        gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
         # Get LoadBalancer IP
         EXTERNAL_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || echo "")
