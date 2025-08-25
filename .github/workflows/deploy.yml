@@ -192,6 +192,10 @@ jobs:
           kubectl apply -f k8s/service.yaml
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/ingress.yaml
+          kubectl rollout restart deployment/flask-blog -n blog-dev
+
+      - name: Force update to working image
+        run: |
           # Force update to use our working image
           kubectl set image deployment/flask-blog flask-blog=us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:force-working -n blog-dev
           kubectl rollout restart deployment/flask-blog -n blog-dev
