@@ -161,12 +161,16 @@ jobs:
         IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:dev-${{ needs.stage_build_push.outputs.short_sha }}"
         sed -i "s|image:.*|image: ${IMAGE}|g" k8s/deployment.yaml
         
-        # Apply manifests
+        # Force delete existing deployment
+        kubectl delete deployment flask-blog -n blog-dev --ignore-not-found=true
+        kubectl delete pods -l app=flask-blog -n blog-dev --ignore-not-found=true
+        
+        # Apply manifests fresh
         kubectl apply -f k8s/deployment.yaml -n blog-dev
         kubectl apply -f k8s/service.yaml -n blog-dev
         
-        # Wait for deployment with extended timeout
-        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=900s
+        # Wait for deployment
+        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=300s
         
         # Show status
         kubectl get pods -n blog-dev
