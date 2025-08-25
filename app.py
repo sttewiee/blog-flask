@@ -196,4 +196,4 @@ def create_app():
 
     return app
 
-__version__ = '2.6.5'
+__version__ = '2.7.0-dev'
