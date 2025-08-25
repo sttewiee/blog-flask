@@ -85,8 +85,8 @@ jobs:
         # Применяем PostgreSQL сначала
         kubectl apply -f k8s/postgres.yaml
         
-        # Ждем готовности PostgreSQL
-        kubectl wait --for=condition=available --timeout=300s deployment/postgres -n blog-dev
+        # Ждем готовности PostgreSQL (увеличиваем timeout)
+        kubectl wait --for=condition=available --timeout=600s deployment/postgres -n blog-dev
         
         # Обновляем образ в deployment манифесте с актуальным тегом
         sed -i "s|:latest|:${{ github.sha }}|g" k8s/deployment.yaml

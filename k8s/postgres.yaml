@@ -38,7 +38,9 @@ spec:
           value: postgres
         - name: POSTGRES_PASSWORD
           value: postgres123
-        # Убираем PGDATA для упрощения
+        # Ускоряем запуск PostgreSQL
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
@@ -49,7 +51,25 @@ spec:
           limits:
             memory: 512Mi
             cpu: 300m
-        # Убираем health checks для упрощения запуска
+        # Health checks для быстрого определения готовности
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
       volumes:
       - name: postgres-storage
         persistentVolumeClaim:
