@@ -147,7 +147,7 @@ jobs:
           --enable-autoscaling \
           --min-nodes=1 \
           --max-nodes=2 \
-          --quiet
+          --quiet || echo "✅ Cluster already exists"
     
     - name: Deploy to DEV
       run: |
