@@ -25,7 +25,7 @@ spec:
         fsGroup: 1000
       containers:
       - name: flask-blog
-        image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:force-working
+        image: us-docker.pkg.dev/sonic-harbor-465608-v1/flask-blog/flask-blog:working
         ports:
         - containerPort: 5000
         env:
