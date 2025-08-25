@@ -32,7 +32,7 @@ spec:
         - name: FLASK_ENV
           value: "production"
         - name: DATABASE_URL
-          value: "postgresql://postgres:postgres@postgres-service:5432/postgres"
+          value: "postgresql://postgres:postgres123@postgres-service:5432/blog"
         - name: SECRET_KEY
           value: "your-secret-key-here"
         resources:
