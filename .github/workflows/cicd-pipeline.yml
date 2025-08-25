@@ -165,8 +165,8 @@ jobs:
         kubectl apply -f k8s/deployment.yaml -n blog-dev
         kubectl apply -f k8s/service.yaml -n blog-dev
         
-        # Wait for deployment
-        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=300s
+        # Wait for deployment with extended timeout
+        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=600s
         
         # Show status
         kubectl get pods -n blog-dev
@@ -216,8 +216,8 @@ jobs:
         kubectl apply -f k8s/deployment.yaml -n blog-prod
         kubectl apply -f k8s/service.yaml -n blog-prod
         
-        # Wait for deployment
-        kubectl rollout status deployment/flask-blog -n blog-prod --timeout=300s
+        # Wait for deployment with extended timeout  
+        kubectl rollout status deployment/flask-blog -n blog-prod --timeout=600s
         
         # Show status
         kubectl get pods -n blog-prod
