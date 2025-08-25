@@ -37,6 +37,11 @@ jobs:
     
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v2
+      
+    - name: Install gke-gcloud-auth-plugin
+      run: |
+        gcloud components install gke-gcloud-auth-plugin
+        echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
     
     - name: Configure Docker for GCP
       run: |
