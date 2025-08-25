@@ -97,11 +97,10 @@ def create_app():
     def register():
         if request.method == 'POST':
             try:
-            # Проверяем подключение к БД
-            db.session.execute(db.text('SELECT 1'))
-            app.logger.info('Database connection OK')
-            
-            if request.method == 'POST':
+                # Проверяем подключение к БД
+                db.session.execute(db.text('SELECT 1'))
+                app.logger.info('Database connection OK')
+                
                 username = request.form['username']
                 password = request.form['password']
                 app.logger.info(f'Processing registration for user: {username}')
@@ -115,14 +114,11 @@ def create_app():
                 db.session.commit()
                 flash('Регистрация успешна. Войдите.')
                 return redirect(url_for('login'))
-            
-            app.logger.info('Rendering register template')
-            return render_template('register.html')
-            
-        except Exception as e:
-            app.logger.error(f'Registration error: {e}')
-            flash(f'Ошибка регистрации: {str(e)}')
-            return render_template('register.html')
+                
+            except Exception as e:
+                app.logger.error(f'Registration error: {e}')
+                flash(f'Ошибка регистрации: {str(e)}')
+                return render_template('register.html')
         
         return render_template('register.html')
 
