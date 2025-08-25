@@ -95,12 +95,8 @@ def create_app():
 
     @app.route('/register', methods=['GET', 'POST'])
     def register():
-        app.logger.info(f'Register route accessed: {request.method}')
-        app.logger.info(f'Request form data: {request.form}')
-        app.logger.info(f'Database URL: {os.environ.get("DATABASE_URL", "NOT_SET")}')
-        app.logger.info(f'Secret Key: {"SET" if os.environ.get("SECRET_KEY") else "NOT_SET"}')
-        
-        try:
+        if request.method == 'POST':
+            try:
             # Проверяем подключение к БД
             db.session.execute(db.text('SELECT 1'))
             app.logger.info('Database connection OK')
@@ -125,12 +121,10 @@ def create_app():
             
         except Exception as e:
             app.logger.error(f'Registration error: {e}')
-            app.logger.error(f'Error type: {type(e)}')
-            app.logger.error(f'Error details: {str(e)}')
-            
-            # Показываем ошибку пользователю
             flash(f'Ошибка регистрации: {str(e)}')
             return render_template('register.html')
+        
+        return render_template('register.html')
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
