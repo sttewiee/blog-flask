@@ -19,10 +19,7 @@ spec:
         prometheus.io/port: "5000"
         prometheus.io/path: "/metrics"
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        fsGroup: 1000
+      # Упрощаем security context
       containers:
       - name: flask-blog
         image: europe-west4-docker.pkg.dev/sonic-harbor-465608-v1/blog-flask/blog-flask:latest
@@ -42,5 +39,4 @@ spec:
           limits:
             memory: 256Mi
             cpu: 200m
-      imagePullSecrets:
-      - name: regcred
+      # Убираем несуществующий imagePullSecrets
