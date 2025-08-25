@@ -142,7 +142,7 @@ jobs:
         gcloud container clusters create ${{ env.CLUSTER_NAME }} \
           --region=${{ env.REGION }} \
           --num-nodes=1 \
-          --machine-type=e2-micro \
+          --machine-type=e2-small \
           --disk-size=15 \
           --enable-autoscaling \
           --min-nodes=1 \
@@ -166,7 +166,7 @@ jobs:
         kubectl apply -f k8s/service.yaml -n blog-dev
         
         # Wait for deployment with extended timeout
-        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=600s
+        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=900s
         
         # Show status
         kubectl get pods -n blog-dev
