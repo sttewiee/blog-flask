@@ -68,20 +68,7 @@ jobs:
       run: |
         gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
     
-    - name: Generate image metadata
-      id: meta
-      run: |
-        BRANCH=${{ steps.vars.outputs.branch }}
-        SHORT_SHA=${{ steps.vars.outputs.short_sha }}
-        TIMESTAMP=${{ steps.vars.outputs.timestamp }}
-        
-        BASE_IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask"
-        
-        echo "tags<<EOF" >> $GITHUB_OUTPUT
-        echo "${BASE_IMAGE}:${BRANCH}-latest" >> $GITHUB_OUTPUT
-        echo "${BASE_IMAGE}:${BRANCH}-${SHORT_SHA}" >> $GITHUB_OUTPUT
-        echo "${BASE_IMAGE}:${BRANCH}-${TIMESTAMP}" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+
     
     - name: Build and push Docker images
       run: |
@@ -144,15 +131,20 @@ jobs:
     
     - name: Create shared cluster
       run: |
-        gcloud container clusters create ${{ env.CLUSTER_NAME }} \
-          --region=${{ env.REGION }} \
-          --num-nodes=2 \
-          --machine-type=e2-standard-2 \
-          --disk-size=20 \
-          --enable-autoscaling \
-          --min-nodes=2 \
-          --max-nodes=4 \
-          --quiet || echo "Cluster already exists"
+        if ! gcloud container clusters describe "${{ env.CLUSTER_NAME }}" --region "${{ env.REGION }}" >/dev/null 2>&1; then
+          echo "Creating cluster ${{ env.CLUSTER_NAME }}..."
+          gcloud container clusters create ${{ env.CLUSTER_NAME }} \
+            --region=${{ env.REGION }} \
+            --num-nodes=2 \
+            --machine-type=e2-standard-2 \
+            --disk-size=20 \
+            --enable-autoscaling \
+            --min-nodes=2 \
+            --max-nodes=4 \
+            --quiet
+        else
+          echo "✅ Cluster ${{ env.CLUSTER_NAME }} already exists"
+        fi
     
     - name: Deploy to DEV
       run: |
@@ -285,6 +277,8 @@ jobs:
         else
           echo "External IP not ready yet, using port-forward"
           kubectl port-forward service/flask-blog-service 8080:80 -n blog-dev &
+          PF_PID=$!
+          trap "kill $PF_PID" EXIT
           sleep 10
           curl -f http://localhost:8080/health || echo "Health check failed"
           curl -f http://localhost:8080/metrics | head -5 || echo "Metrics test failed"
