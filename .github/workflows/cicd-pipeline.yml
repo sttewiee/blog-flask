@@ -154,7 +154,7 @@ jobs:
           --enable-autoscaling \
           --min-nodes=2 \
           --max-nodes=4 \
-          --quiet || echo "✅ Cluster already exists"
+          --quiet || echo "Cluster already exists"
     
     - name: Deploy to DEV
       run: |
@@ -163,7 +163,7 @@ jobs:
         kubectl create namespace blog-dev --dry-run=client -o yaml | kubectl apply -f -
         
         # DEV environment - only deploy DEV, don't touch PROD
-        echo "✅ Deploying DEV environment (PROD remains untouched)"
+        echo "Deploying DEV environment (PROD remains untouched)"
         
         IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:dev-${{ needs.stage_build_push.outputs.short_sha }}"
         sed -i "s|image:.*|image: ${IMAGE}|g" k8s/deployment.yaml
@@ -225,7 +225,7 @@ jobs:
         
         kubectl delete deployment flask-blog -n blog-dev --ignore-not-found=true
         kubectl delete pods -l app=flask-blog -n blog-dev --ignore-not-found=true
-        echo "✅ DEV environment stopped to free resources for PROD"
+        echo "DEV environment stopped to free resources for PROD"
         
         IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:main-${{ needs.stage_build_push.outputs.short_sha }}"
         sed -i "s|image:.*|image: ${IMAGE}|g" k8s/deployment.yaml
@@ -269,7 +269,7 @@ jobs:
         # Get service external IP (if available)
         # For now, test health endpoint via port-forward
         echo "Testing DEV environment..."
-        echo "✅ DEV deployment test completed"
+        echo "DEV deployment test completed"
 
   stage_test_prd:
     runs-on: ubuntu-latest
@@ -304,18 +304,18 @@ jobs:
           echo "External IP not ready yet, skipping HTTP tests"
         fi
         
-        echo "✅ PRODUCTION deployment test completed"
+        echo "PRODUCTION deployment test completed"
         
-        echo "=== 🌐 PRODUCTION URLS ==="
+        echo "=== PRODUCTION URLS ==="
         FLASK_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "34.91.2.135")
         
         PROMETHEUS_IP=$(kubectl get service prometheus-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
         GRAFANA_IP=$(kubectl get service grafana-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
         
-        echo "🚀 Flask App: http://$FLASK_IP/"
-        echo "📊 Prometheus: http://$PROMETHEUS_IP:9090/"
-        echo "📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123)"
-        echo "📋 Metrics: http://$FLASK_IP/metrics"
+        echo "Flask App: http://$FLASK_IP/"
+        echo "Prometheus: http://$PROMETHEUS_IP:9090/"
+        echo "Grafana: http://$GRAFANA_IP:3000/ (admin/admin123)"
+        echo "Metrics: http://$FLASK_IP/metrics"
         
 
 
@@ -356,7 +356,7 @@ jobs:
         BRANCH=${GITHUB_REF#refs/heads/}
         
         if [[ "$BRANCH" == "main" ]]; then
-          ENVIRONMENT="🚀 PRODUCTION"
+          ENVIRONMENT="PRODUCTION"
           
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
           
@@ -368,17 +368,17 @@ jobs:
           PROMETHEUS_IP=$(kubectl get service prometheus-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           GRAFANA_IP=$(kubectl get service grafana-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           
-          echo "📊 Prometheus IP: $PROMETHEUS_IP"
-          echo "📈 Grafana IP: $GRAFANA_IP"
+          echo "Prometheus IP: $PROMETHEUS_IP"
+          echo "Grafana IP: $GRAFANA_IP"
           
           # Get all services info
           echo "=== All PROD Services ==="
           kubectl get services -n blog-prod
           
-          URLS="🌐 Production URLs: 📱 App: http://$FLASK_IP/ 📊 Prometheus: http://$PROMETHEUS_IP:9090/ 📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123) 📋 Metrics: http://$FLASK_IP/metrics"
+          URLS="Production URLs: App: http://$FLASK_IP/ Prometheus: http://$PROMETHEUS_IP:9090/ Grafana: http://$GRAFANA_IP:3000/ (admin/admin123) Metrics: http://$FLASK_IP/metrics"
           
         else
-          ENVIRONMENT="🔧 DEVELOPMENT"
+          ENVIRONMENT="DEVELOPMENT"
           
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
           
@@ -392,10 +392,10 @@ jobs:
           echo "=== All DEV Services ==="
           kubectl get services -n blog-dev
           
-          URLS="🌐 Development URLs: 📱 App: http://$DEV_FLASK_IP/ 📊 Prometheus: http://$DEV_PROMETHEUS_IP:9090/ 📈 Grafana: http://$DEV_GRAFANA_IP:3000/ (admin/admin123) 📋 Metrics: http://$DEV_FLASK_IP/metrics"
+          URLS="Development URLs: App: http://$DEV_FLASK_IP/ Prometheus: http://$DEV_PROMETHEUS_IP:9090/ Grafana: http://$DEV_GRAFANA_IP:3000/ (admin/admin123) Metrics: http://$DEV_FLASK_IP/metrics"
         fi
         
-        MESSAGE="✅ CI/CD SUCCESS | Branch: $BRANCH | Environment: $ENVIRONMENT | Commit: ${GITHUB_SHA:0:8} | $URLS | 🎉 Deployment completed successfully!"
+        MESSAGE="CI/CD SUCCESS | Branch: $BRANCH | Environment: $ENVIRONMENT | Commit: ${GITHUB_SHA:0:8} | $URLS | Deployment completed successfully!"
         
         curl -s -X POST "https://api.telegram.org/bot8251627883:AAGx2cF8wSVTgXaiFM5hNIXVnM2UAlTbRMo/sendMessage" \
           -d chat_id="-4872258641" \
@@ -413,12 +413,12 @@ jobs:
         BRANCH=${GITHUB_REF#refs/heads/}
         
         if [[ "$BRANCH" == "main" ]]; then
-          ENVIRONMENT="🚀 PRODUCTION"
+          ENVIRONMENT=" PRODUCTION"
         else
-          ENVIRONMENT="🔧 DEVELOPMENT"
+          ENVIRONMENT=" DEVELOPMENT"
         fi
         
-        MESSAGE="❌ CI/CD FAILED | Branch: $BRANCH | Environment: $ENVIRONMENT | Commit: ${GITHUB_SHA:0:8} | Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }} | ⚠️ Deployment failed!"
+        MESSAGE="CI/CD FAILED | Branch: $BRANCH | Environment: $ENVIRONMENT | Commit: ${GITHUB_SHA:0:8} | Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }} | Deployment failed!"
         
         curl -s -X POST "https://api.telegram.org/bot8251627883:AAGx2cF8wSVTgXaiFM5hNIXVnM2UAlTbRMo/sendMessage" \
           -d chat_id="-4872258641" \
