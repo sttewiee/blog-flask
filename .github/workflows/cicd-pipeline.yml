@@ -155,19 +155,49 @@ jobs:
         # DEV environment - only deploy DEV, don't touch PROD
         echo "Deploying DEV environment (PROD remains untouched)"
         
-        IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:dev-${{ needs.stage_build_push.outputs.short_sha }}"
+        # Берём short_sha из outputs, а если вдруг пусто — считаем локально
+        SHORT_SHA="${{ needs.stage_build_test_push.outputs.short_sha }}"
+        if [[ -z "$SHORT_SHA" ]]; then
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          echo "WARN: needs.stage_build_test_push.outputs.short_sha is empty, fallback to ${SHORT_SHA}"
+        fi
+        
+        IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:dev-${SHORT_SHA}"
+        echo "Using image: ${IMAGE}"
+        
+        # Проверка доступности образа (опционально)
+        docker manifest inspect "${IMAGE}" >/dev/null 2>&1 || {
+          echo "ERROR: Image ${IMAGE} not found in registry"
+          exit 1
+        }
         
         # Apply deployment first
         kubectl apply -f k8s/deployment.yaml -n blog-dev
         
         # Update image using kubectl set image (more reliable than sed)
-        kubectl set image deployment/flask-blog flask-blog=${IMAGE} -n blog-dev --record
+        kubectl set image deployment/flask-blog flask-blog="${IMAGE}" -n blog-dev
+        
         kubectl apply -f k8s/service.yaml -n blog-dev
-        kubectl apply -f k8s/hpa-dev.yaml
+        kubectl apply -f k8s/hpa-dev.yaml -n blog-dev
         
         kubectl apply -f k8s/monitoring-shared.yaml
         
-        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=120s
+        # Ждём подольше и при фейле — даём диагностику
+        set +e
+        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=300s
+        R=$?
+        set -e
+        if [[ $R -ne 0 ]]; then
+          echo "=== DEBUG: Deployment/RS/Pods ==="
+          kubectl get deploy/flask-blog -n blog-dev -o wide
+          kubectl get rs -n blog-dev -o wide --sort-by=.metadata.creationTimestamp
+          kubectl get pods -n blog-dev -o wide
+          echo "=== DESCRIBE latest pods ==="
+          kubectl describe pods -n blog-dev | sed -n '1,200p'
+          echo "=== Recent events ==="
+          kubectl get events -n blog-dev --sort-by=.metadata.creationTimestamp | tail -n 100
+          exit 1
+        fi
         
         kubectl get pods -n blog-dev
         kubectl get services -n blog-dev
@@ -217,19 +247,49 @@ jobs:
         # PROD environment - don't touch DEV
         echo "✅ Deploying PROD environment (DEV remains untouched)"
         
-        IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:main-${{ needs.stage_build_push.outputs.short_sha }}"
+        # Берём short_sha из outputs, а если вдруг пусто — считаем локально
+        SHORT_SHA="${{ needs.stage_build_test_push.outputs.short_sha }}"
+        if [[ -z "$SHORT_SHA" ]]; then
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          echo "WARN: needs.stage_build_test_push.outputs.short_sha is empty, fallback to ${SHORT_SHA}"
+        fi
+        
+        IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:main-${SHORT_SHA}"
+        echo "Using image: ${IMAGE}"
+        
+        # Проверка доступности образа (опционально)
+        docker manifest inspect "${IMAGE}" >/dev/null 2>&1 || {
+          echo "ERROR: Image ${IMAGE} not found in registry"
+          exit 1
+        }
         
         # Apply deployment first
         kubectl apply -f k8s/deployment.yaml -n blog-prod
         
         # Update image using kubectl set image (more reliable than sed)
-        kubectl set image deployment/flask-blog flask-blog=${IMAGE} -n blog-prod --record
+        kubectl set image deployment/flask-blog flask-blog="${IMAGE}" -n blog-prod
+        
         kubectl apply -f k8s/service.yaml -n blog-prod
-        kubectl apply -f k8s/hpa-prod.yaml
+        kubectl apply -f k8s/hpa-prod.yaml -n blog-prod
         
         kubectl apply -f k8s/monitoring-shared.yaml
         
-        kubectl rollout status deployment/flask-blog -n blog-prod --timeout=200s
+        # Ждём подольше и при фейле — даём диагностику
+        set +e
+        kubectl rollout status deployment/flask-blog -n blog-prod --timeout=300s
+        R=$?
+        set -e
+        if [[ $R -ne 0 ]]; then
+          echo "=== DEBUG: Deployment/RS/Pods ==="
+          kubectl get deploy/flask-blog -n blog-prod -o wide
+          kubectl get rs -n blog-prod -o wide --sort-by=.metadata.creationTimestamp
+          kubectl get pods -n blog-prod -o wide
+          echo "=== DESCRIBE latest pods ==="
+          kubectl describe pods -n blog-prod | sed -n '1,200p'
+          echo "=== Recent events ==="
+          kubectl get events -n blog-prod --sort-by=.metadata.creationTimestamp | tail -n 100
+          exit 1
+        fi
         
         kubectl get pods -n blog-prod
         kubectl get services -n blog-prod
