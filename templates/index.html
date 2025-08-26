@@ -14,7 +14,7 @@
       {% endif %}
     {% endwith %}
     {% if session.user_id %}
-      <a class="btn btn-primary mb-2" href="{{ url_for('create') }}">Создать постик</a>
+      <a class="btn btn-primary mb-2" href="{{ url_for('create') }}">Создать очередной постик</a>
       <a class="btn btn-secondary mb-2" href="{{ url_for('logout') }}">Выйти</a>
     {% else %}
       <a class="btn btn-primary mb-2" href="{{ url_for('login') }}">Войдите</a>
