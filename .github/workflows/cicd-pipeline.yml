@@ -232,12 +232,27 @@ jobs:
         kubectl apply -f k8s/deployment.yaml -n blog-prod
         kubectl apply -f k8s/service.yaml -n blog-prod
         
+        # Deploy monitoring stack (Prometheus + Grafana) for PROD
+        sed -i "s|namespace: blog-dev|namespace: blog-prod|g" k8s/monitoring.yaml
+        kubectl apply -f k8s/monitoring.yaml -n blog-prod
+        # Restore original namespace
+        sed -i "s|namespace: blog-prod|namespace: blog-dev|g" k8s/monitoring.yaml
+        
         # Wait for deployment
         kubectl rollout status deployment/flask-blog -n blog-prod --timeout=300s
         
         # Show status
         kubectl get pods -n blog-prod
         kubectl get services -n blog-prod
+        
+        # Wait for monitoring services to get external IPs
+        echo "Waiting for monitoring services..."
+        kubectl wait --for=condition=ready pod -l app=prometheus-simple -n blog-prod --timeout=120s || echo "Prometheus not ready"
+        kubectl wait --for=condition=ready pod -l app=grafana-simple -n blog-prod --timeout=120s || echo "Grafana not ready"
+        
+        # Show monitoring services with external IPs
+        echo "=== MONITORING SERVICES ==="
+        kubectl get services -n blog-prod | grep -E "(prometheus|grafana)" || echo "Monitoring services not found"
 
   # ==========================================
   # STAGE: TESTING
@@ -293,6 +308,17 @@ jobs:
         fi
         
         echo "✅ PRODUCTION deployment test completed"
+        
+        # Show all external IPs for easy access
+        echo "=== 🌐 PRODUCTION URLS ==="
+        FLASK_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+        PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+        GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+        
+        echo "🚀 Flask App: http://$FLASK_IP/"
+        echo "📊 Prometheus: http://$PROMETHEUS_IP:9090/"
+        echo "📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123)"
+        echo "📋 Metrics: http://$FLASK_IP/metrics"
 
   # ==========================================
   # STAGE: NOTIFICATIONS
