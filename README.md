@@ -303,22 +303,103 @@ kubectl port-forward -n blog-prod service/flask-blog-service 8080:80
 
 ## 📊 Мониторинг
 
-### Метрики Prometheus
-```bash
-# Port-forward к приложению
-kubectl port-forward -n blog-prod service/flask-blog-service 8080:80
+Полностью настроенная система мониторинга с Prometheus и Grafana.
 
-# Метрики доступны на:
-http://localhost:8080/metrics
+### 🔍 Метрики Prometheus
+
+#### Локально (Development)
+```bash
+# Запуск приложения
+docker compose up -d
+
+# Проверка метрик
+curl http://localhost:5000/metrics
+
+# Доступные метрики:
+# - Python GC metrics
+# - Flask request counters
+# - HTTP response times
+# - Custom application metrics
 ```
 
-### Health Checks
+#### Production
 ```bash
-# Внутренний health check
-curl http://localhost:5000/health
+# Метрики доступны на production URL
+curl http://34.91.2.135/metrics
 
-# Внешний (замените на ваш EXTERNAL-IP)
+# Или через port-forward из кластера
+kubectl port-forward -n blog-prod service/flask-blog-service 8080:80
+curl http://localhost:8080/metrics
+```
+
+### 🏥 Health Checks
+
+#### Базовый health check
+```bash
+# Локально
+curl http://localhost:5000/health
+# Ответ: {"status":"ok","version":"2.7.0-dev"}
+
+# Production
 curl http://34.91.2.135/health
+```
+
+#### Расширенная диагностика
+```bash
+# Проверка подключения к БД
+curl http://localhost:5000/health/db
+
+# Debug информация
+curl http://localhost:5000/debug
+```
+
+### 📈 Kubernetes мониторинг
+
+#### Prometheus в кластере
+```bash
+# Развертывание мониторинга (только для DEV)
+kubectl apply -f k8s/monitoring.yaml -n blog-dev
+
+# Проверка статуса
+kubectl get pods -n blog-dev | grep prometheus
+kubectl get services -n blog-dev | grep prometheus
+
+# Доступ к Prometheus UI
+kubectl port-forward -n blog-dev service/prometheus-simple-service 9090:9090
+# Открыть: http://localhost:9090
+```
+
+#### Grafana Dashboard
+```bash
+# Доступ к Grafana
+kubectl port-forward -n blog-dev service/grafana-simple-service 3000:3000
+# Открыть: http://localhost:3000
+# Логин: admin / admin123
+
+# Настройка Data Source в Grafana:
+# URL: http://prometheus-simple-service:9090
+```
+
+### 📊 Конфигурация мониторинга
+
+#### Prometheus targets
+- **Flask App**: `flask-blog-service.blog-dev.svc.cluster.local:80`
+- **Scrape interval**: 30 секунд
+- **Metrics path**: `/metrics`
+
+#### Grafana настройки
+- **Версия**: 10.2.0
+- **Ресурсы**: 64Mi-128Mi RAM, 50m-100m CPU
+- **Retention**: 7 дней для Prometheus
+
+### 🚨 Мониторинг в CI/CD
+
+Pipeline автоматически проверяет:
+```yaml
+# Health checks после деплоя
+- Health endpoint: /health
+- Database connectivity: /health/db
+- Metrics availability: /metrics
 ```
 
 ## 🎯 Текущие URLs
