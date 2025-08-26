@@ -281,7 +281,7 @@ jobs:
         
         echo "✅ PRODUCTION deployment test completed"
 
-  # ==========================================
+  # =======================================
   # STAGE: NOTIFICATIONS
   # ==========================================
   notify_success:
