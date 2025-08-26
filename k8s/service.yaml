@@ -5,6 +5,10 @@ metadata:
   namespace: blog-dev
   labels:
     app: flask-blog
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5000"
+    prometheus.io/path: "/metrics"
 spec:
   type: LoadBalancer
   ports:

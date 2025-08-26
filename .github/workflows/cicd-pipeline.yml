@@ -174,7 +174,7 @@ jobs:
         kubectl apply -f k8s/deployment.yaml -n blog-dev
         kubectl apply -f k8s/service.yaml -n blog-dev
         
-        kubectl apply -f k8s/monitoring.yaml -n blog-dev
+        kubectl apply -f k8s/monitoring-shared.yaml
         
         kubectl rollout status deployment/flask-blog -n blog-dev --timeout=120s
         
@@ -238,9 +238,7 @@ jobs:
         kubectl apply -f k8s/deployment.yaml -n blog-prod
         kubectl apply -f k8s/service.yaml -n blog-prod
         
-        sed -i "s|namespace: blog-dev|namespace: blog-prod|g" k8s/monitoring.yaml
-        kubectl apply -f k8s/monitoring.yaml -n blog-prod
-        sed -i "s|namespace: blog-prod|namespace: blog-dev|g" k8s/monitoring.yaml
+        kubectl apply -f k8s/monitoring-shared.yaml
         
         kubectl rollout status deployment/flask-blog -n blog-prod --timeout=200s
         
@@ -248,11 +246,11 @@ jobs:
         kubectl get services -n blog-prod
         
         echo "Waiting for monitoring services..."
-        kubectl wait --for=condition=ready pod -l app=prometheus-simple -n blog-prod --timeout=120s || echo "Prometheus not ready"
-        kubectl wait --for=condition=ready pod -l app=grafana-simple -n blog-prod --timeout=120s || echo "Grafana not ready"
+        kubectl wait --for=condition=ready pod -l app=prometheus-shared -n monitoring --timeout=120s || echo "Prometheus not ready"
+        kubectl wait --for=condition=ready pod -l app=grafana-shared -n monitoring --timeout=120s || echo "Grafana not ready"
         
         echo "=== MONITORING SERVICES ==="
-        kubectl get services -n blog-prod | grep -E "(prometheus|grafana)" || echo "Monitoring services not found"
+        kubectl get services -n monitoring | grep -E "(prometheus|grafana)" || echo "Monitoring services not found"
         
 
 
@@ -365,10 +363,10 @@ jobs:
           FLASK_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "34.91.2.135")
           
           echo "=== DEBUG: Checking monitoring services ==="
-          kubectl get services -n blog-prod | grep -E "(prometheus|grafana)" || echo "No monitoring services found"
+          kubectl get services -n monitoring | grep -E "(prometheus|grafana)" || echo "No monitoring services found"
           
-          PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
-          GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          PROMETHEUS_IP=$(kubectl get service prometheus-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          GRAFANA_IP=$(kubectl get service grafana-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           
           echo "📊 Prometheus IP: $PROMETHEUS_IP"
           echo "📈 Grafana IP: $GRAFANA_IP"
@@ -387,8 +385,8 @@ jobs:
           # Get Flask IP directly
           DEV_FLASK_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           
-          DEV_PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
-          DEV_GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          DEV_PROMETHEUS_IP=$(kubectl get service prometheus-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          DEV_GRAFANA_IP=$(kubectl get service grafana-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           
           # Get all services info
           echo "=== All DEV Services ==="
