@@ -223,9 +223,8 @@ jobs:
         
         kubectl create namespace blog-prod --dry-run=client -o yaml | kubectl apply -f -
         
-        kubectl delete deployment flask-blog -n blog-dev --ignore-not-found=true
-        kubectl delete pods -l app=flask-blog -n blog-dev --ignore-not-found=true
-        echo "DEV environment stopped to free resources for PROD"
+        # PROD environment - don't touch DEV
+        echo "✅ Deploying PROD environment (DEV remains untouched)"
         
         IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:main-${{ needs.stage_build_push.outputs.short_sha }}"
         sed -i "s|image:.*|image: ${IMAGE}|g" k8s/deployment.yaml
