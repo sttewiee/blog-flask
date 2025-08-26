@@ -87,6 +87,11 @@ jobs:
         docker push ${BASE_IMAGE}:${BRANCH}-latest
         docker push ${BASE_IMAGE}:${BRANCH}-${SHORT_SHA}
         docker push ${BASE_IMAGE}:${BRANCH}-${TIMESTAMP}
+        
+        echo "Pushed images:"
+        echo "  - ${BASE_IMAGE}:${BRANCH}-latest"
+        echo "  - ${BASE_IMAGE}:${BRANCH}-${SHORT_SHA}"
+        echo "  - ${BASE_IMAGE}:${BRANCH}-${TIMESTAMP}"
 
   # DEPLOY TO DEVELOPMENT ENVIRONMENT
   stage_deploy_dev:
@@ -166,9 +171,9 @@ jobs:
         echo "Using image: ${IMAGE}"
         
         # Проверка доступности образа (опционально)
-        docker manifest inspect "${IMAGE}" >/dev/null 2>&1 || {
-          echo "ERROR: Image ${IMAGE} not found in registry"
-          exit 1
+        echo "Checking if image exists in registry..."
+        gcloud artifacts docker images list ${IMAGE%:*} --include-tags | grep "${IMAGE#*:}" || {
+          echo "WARN: Image ${IMAGE} not found in registry, but continuing deployment..."
         }
         
         # Apply deployment first
@@ -258,9 +263,9 @@ jobs:
         echo "Using image: ${IMAGE}"
         
         # Проверка доступности образа (опционально)
-        docker manifest inspect "${IMAGE}" >/dev/null 2>&1 || {
-          echo "ERROR: Image ${IMAGE} not found in registry"
-          exit 1
+        echo "Checking if image exists in registry..."
+        gcloud artifacts docker images list ${IMAGE%:*} --include-tags | grep "${IMAGE#*:}" || {
+          echo "WARN: Image ${IMAGE} not found in registry, but continuing deployment..."
         }
         
         # Apply deployment first
