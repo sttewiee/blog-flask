@@ -18,8 +18,8 @@ env:
   REPOSITORY: blog-flask
 
 jobs:
-  # BUILD & PUSH
-  stage_build_push:
+  # BUILD, TEST & PUSH DOCKER IMAGE
+  stage_build_test_push:
     runs-on: ubuntu-latest
     outputs:
       short_sha: ${{ steps.vars.outputs.short_sha }}
@@ -28,24 +28,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up variables
+    - name: Set up build variables
       id: vars
       run: |
         echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
         echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
         echo "timestamp=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
     
-    - name: Set up Python
+    - name: Set up Python environment
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
     
-    - name: Install dependencies
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Run tests
+    - name: Run unit tests
       run: |
         python -m pytest test_app.py -v
     
@@ -57,20 +57,20 @@ jobs:
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v2
     
-    - name: Create Artifact Registry repository
+    - name: Create Docker Artifact Registry repository
       run: |
         gcloud artifacts repositories create ${{ env.REPOSITORY }} \
           --repository-format=docker \
           --location=${{ env.REGION }} \
           --description="Flask Blog Docker Repository" || echo "Repository already exists"
     
-    - name: Configure Docker for GCP
+    - name: Configure Docker for Google Artifact Registry
       run: |
         gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
     
 
     
-    - name: Build and push Docker images
+    - name: Build and push Docker images to Artifact Registry
       run: |
         BRANCH=${{ steps.vars.outputs.branch }}
         SHORT_SHA=${{ steps.vars.outputs.short_sha }}
@@ -88,10 +88,10 @@ jobs:
         docker push ${BASE_IMAGE}:${BRANCH}-${SHORT_SHA}
         docker push ${BASE_IMAGE}:${BRANCH}-${TIMESTAMP}
 
-  # DEPLOY DEV
+  # DEPLOY TO DEVELOPMENT ENVIRONMENT
   stage_deploy_dev:
     runs-on: ubuntu-latest
-    needs: stage_build_push
+    needs: stage_build_test_push
     if: github.ref == 'refs/heads/dev'
     environment: development
     
@@ -124,12 +124,12 @@ jobs:
         
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
     
-    - name: Check cluster exists
+    - name: Check if GKE cluster exists
       run: |
         echo "✅ Checking if cluster exists..."
         gcloud container clusters describe ${{ env.CLUSTER_NAME }} --region=${{ env.REGION }} --quiet || echo "Cluster not found"
     
-    - name: Create shared cluster
+    - name: Create GKE cluster if not exists
       run: |
         if ! gcloud container clusters describe "${{ env.CLUSTER_NAME }}" --region "${{ env.REGION }}" >/dev/null 2>&1; then
           echo "Creating cluster ${{ env.CLUSTER_NAME }}..."
@@ -146,7 +146,7 @@ jobs:
           echo "✅ Cluster ${{ env.CLUSTER_NAME }} already exists"
         fi
     
-    - name: Deploy to DEV
+    - name: Deploy application to DEV environment
       run: |
         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
@@ -172,10 +172,10 @@ jobs:
         kubectl get pods -n blog-dev
         kubectl get services -n blog-dev
 
-  # DEPLOY PRODUCTION
+  # DEPLOY TO PRODUCTION ENVIRONMENT
   stage_deploy_prd:
     runs-on: ubuntu-latest
-    needs: stage_build_push
+    needs: stage_build_test_push
     if: github.ref == 'refs/heads/main'
     environment: production
     
@@ -208,7 +208,7 @@ jobs:
         
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
     
-    - name: Deploy to PRODUCTION
+    - name: Deploy application to PRODUCTION environment
       run: |
         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
@@ -243,10 +243,10 @@ jobs:
         
 
 
-  # TESTING
+  # TEST DEVELOPMENT ENVIRONMENT
   stage_test_dev:
     runs-on: ubuntu-latest
-    needs: [stage_build_push, stage_deploy_dev]
+    needs: [stage_build_test_push, stage_deploy_dev]
     if: github.ref == 'refs/heads/dev'
     
     steps:
@@ -258,7 +258,18 @@ jobs:
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v2
     
-    - name: Test DEV deployment
+    - name: Install gke-gcloud-auth-plugin
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gnupg
+        sudo mkdir -p /usr/share/keyrings
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+        sudo apt-get update
+        sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin kubectl
+        echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+    
+    - name: Test DEV environment deployment
       run: |
         echo "Waiting for application to be ready..."
         sleep 30
@@ -266,20 +277,23 @@ jobs:
         # Get cluster credentials
         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
-        # Get external IP
-        EXTERNAL_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || echo "")
+        # Попытка получить внешний IP
+        set +e
+        EXTERNAL_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        RC=$?
+        set -e
         
-        if [[ -n "$EXTERNAL_IP" && "$EXTERNAL_IP" != "null" ]]; then
-          echo "Testing DEV environment at http://$EXTERNAL_IP"
+        if [[ $RC -eq 0 && -n "$EXTERNAL_IP" && "$EXTERNAL_IP" != "null" ]]; then
+          echo "Testing DEV at http://$EXTERNAL_IP"
           curl -f http://$EXTERNAL_IP/health || echo "Health check failed"
           curl -f http://$EXTERNAL_IP/metrics | head -5 || echo "Metrics test failed"
           curl -f http://$EXTERNAL_IP/ | head -5 || echo "Main page test failed"
         else
-          echo "External IP not ready yet, using port-forward"
+          echo "External IP not ready, using port-forward"
           kubectl port-forward service/flask-blog-service 8080:80 -n blog-dev &
           PF_PID=$!
           trap "kill $PF_PID" EXIT
-          sleep 10
+          sleep 8
           curl -f http://localhost:8080/health || echo "Health check failed"
           curl -f http://localhost:8080/metrics | head -5 || echo "Metrics test failed"
           curl -f http://localhost:8080/ | head -5 || echo "Main page test failed"
@@ -287,9 +301,10 @@ jobs:
         
         echo "DEV deployment test completed"
 
+  # TEST PRODUCTION ENVIRONMENT
   stage_test_prd:
     runs-on: ubuntu-latest
-    needs: [stage_build_push, stage_deploy_prd]
+    needs: [stage_build_test_push, stage_deploy_prd]
     if: github.ref == 'refs/heads/main'
     
     steps:
@@ -301,7 +316,18 @@ jobs:
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v2
     
-    - name: Test PRODUCTION deployment
+    - name: Install gke-gcloud-auth-plugin
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gnupg
+        sudo mkdir -p /usr/share/keyrings
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+        sudo apt-get update
+        sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin kubectl
+        echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+    
+    - name: Test PRODUCTION environment deployment
       run: |
         echo "Waiting for application to be ready..."
         sleep 30
@@ -335,13 +361,13 @@ jobs:
         
 
 
-  # NOTIFICATIONS
+  # SEND SUCCESS NOTIFICATIONS
   notify_success:
     runs-on: ubuntu-latest
-    needs: [stage_build_push, stage_deploy_dev, stage_deploy_prd, stage_test_dev, stage_test_prd]
+    needs: [stage_build_test_push, stage_deploy_dev, stage_deploy_prd, stage_test_dev, stage_test_prd]
     if: |
       always() && 
-      needs.stage_build_push.result == 'success' && 
+      needs.stage_build_test_push.result == 'success' && 
       (
         (github.ref == 'refs/heads/main' && needs.stage_deploy_prd.result == 'success') ||
         (github.ref == 'refs/heads/dev' && needs.stage_deploy_dev.result == 'success')
@@ -373,7 +399,7 @@ jobs:
         
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
     
-    - name: Notify success
+    - name: Send success notification to Telegram
       run: |
         BRANCH=${GITHUB_REF#refs/heads/}
         
@@ -424,13 +450,14 @@ jobs:
           -d parse_mode="HTML" \
           -d text="$MESSAGE"
 
+  # SEND FAILURE NOTIFICATIONS
   notify_failure:
     runs-on: ubuntu-latest
-    needs: [stage_build_push, stage_deploy_dev, stage_deploy_prd, stage_test_dev, stage_test_prd]
-    if: always() && (needs.stage_build_push.result == 'failure' || needs.stage_deploy_dev.result == 'failure' || needs.stage_deploy_prd.result == 'failure')
+    needs: [stage_build_test_push, stage_deploy_dev, stage_deploy_prd, stage_test_dev, stage_test_prd]
+    if: always() && (needs.stage_build_test_push.result == 'failure' || needs.stage_deploy_dev.result == 'failure' || needs.stage_deploy_prd.result == 'failure')
     
     steps:
-    - name: Notify failure
+    - name: Send failure notification to Telegram
       run: |
         BRANCH=${GITHUB_REF#refs/heads/}
         
