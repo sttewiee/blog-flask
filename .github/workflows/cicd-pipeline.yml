@@ -254,20 +254,7 @@ jobs:
         echo "=== MONITORING SERVICES ==="
         kubectl get services -n blog-prod | grep -E "(prometheus|grafana)" || echo "Monitoring services not found"
         
-        # Wait for external IPs to be assigned (up to 5 minutes)
-        echo "Waiting for external IPs to be assigned..."
-        for i in {1..30}; do
-          PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-          GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-          
-          if [[ -n "$PROMETHEUS_IP" && "$PROMETHEUS_IP" != "null" && -n "$GRAFANA_IP" && "$GRAFANA_IP" != "null" ]]; then
-            echo "✅ External IPs assigned: Prometheus=$PROMETHEUS_IP, Grafana=$GRAFANA_IP"
-            break
-          fi
-          
-          echo "⏳ Waiting for external IPs... (attempt $i/30)"
-          sleep 10
-        done
+        # Note: External IPs will be waited for in notification job
 
   # ==========================================
   # STAGE: TESTING
@@ -337,9 +324,7 @@ jobs:
         echo "📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123)"
         echo "📋 Metrics: http://$FLASK_IP/metrics"
         
-        # Save IPs for notifications
-        echo "PROMETHEUS_IP=$PROMETHEUS_IP" >> $GITHUB_ENV
-        echo "GRAFANA_IP=$GRAFANA_IP" >> $GITHUB_ENV
+        # Note: IPs will be obtained in notification job
 
   # ==========================================
   # STAGE: NOTIFICATIONS
@@ -370,8 +355,29 @@ jobs:
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
           
           FLASK_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "34.91.2.135")
-          PROMETHEUS_IP=${PROMETHEUS_IP:-$(kubectl get service prometheus-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")}
-          GRAFANA_IP=${GRAFANA_IP:-$(kubectl get service grafana-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")}
+          
+          # Wait for external IPs to be assigned (up to 5 minutes)
+          echo "Waiting for external IPs to be assigned..."
+          for i in {1..30}; do
+            PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            
+            if [[ -n "$PROMETHEUS_IP" && "$PROMETHEUS_IP" != "null" && -n "$GRAFANA_IP" && "$GRAFANA_IP" != "null" ]]; then
+              echo "✅ External IPs assigned: Prometheus=$PROMETHEUS_IP, Grafana=$GRAFANA_IP"
+              break
+            fi
+            
+            echo "⏳ Waiting for external IPs... (attempt $i/30)"
+            sleep 10
+          done
+          
+          # If still pending, use fallback
+          if [[ -z "$PROMETHEUS_IP" || "$PROMETHEUS_IP" == "null" ]]; then
+            PROMETHEUS_IP="pending"
+          fi
+          if [[ -z "$GRAFANA_IP" || "$GRAFANA_IP" == "null" ]]; then
+            GRAFANA_IP="pending"
+          fi
           
           URLS="🌐 Production URLs: 📱 App: http://$FLASK_IP/ 📊 Prometheus: http://$PROMETHEUS_IP:9090/ 📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123) 📋 Metrics: http://$FLASK_IP/metrics"
           
