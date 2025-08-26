@@ -28,21 +28,17 @@ def create_app():
 
     db.init_app(app)
     
-    # Отключаем метрики только в тестовом режиме
-    flask_env = os.environ.get('FLASK_ENV', 'production')
-    if flask_env != 'testing':
+    # Инициализация Prometheus метрик
+    if os.environ.get('FLASK_ENV') != 'testing':
         metrics = PrometheusMetrics(app)
         metrics.info('flask_blog_info', 'Flask Blog Application Info', version=__version__)
-        app.logger.info(f'Prometheus metrics initialized for env: {flask_env}')
 
     # Инициализация БД при старте
     with app.app_context():
         try:
             db.create_all()
-            app.logger.info('Database tables created successfully')
         except Exception as e:
-            app.logger.error(f'Failed to create database tables: {e}')
-            app.logger.info('Continuing without database initialization')
+            pass
 
     @app.route('/health')
     def health():
@@ -59,55 +55,30 @@ def create_app():
     @app.route('/debug')
     def debug():
         try:
-            db_status = 'connected'
-            db_error = None
-            try:
-                db.session.execute(db.text('SELECT 1'))
-            except Exception as e:
-                db_status = 'disconnected'
-                db_error = str(e)
-            
-            # Проверяем доступность шаблонов
-            import os
-            templates_available = []
-            templates_dir = app.template_folder
-            if os.path.exists(templates_dir):
-                for file in os.listdir(templates_dir):
-                    if file.endswith('.html'):
-                        templates_available.append(file)
-            
-            return {
-                'app_version': __version__,
-                'database': db_status,
-                'database_error': db_error,
-                'templates_dir': app.template_folder,
-                'templates_available': templates_available,
-                'static_dir': app.static_folder,
-                'environment': os.environ.get('FLASK_ENV', 'unknown')
-            }
-        except Exception as e:
-            return {'error': str(e)}, 500
+            db_status = 'connected' if db.session.execute(db.text('SELECT 1')) else 'disconnected'
+        except:
+            db_status = 'disconnected'
+        
+        return {
+            'app_version': __version__,
+            'database': db_status,
+            'environment': os.environ.get('FLASK_ENV', 'unknown')
+        }
     
     @app.route('/')
     def home():
         try:
             posts = Post.query.order_by(Post.id.desc()).all()
-            return render_template('index.html', posts=posts)
-        except Exception as e:
-            app.logger.error(f'Home error: {e}')
-            return render_template('index.html', posts=[])
+        except:
+            posts = []
+        return render_template('index.html', posts=posts)
 
     @app.route('/register', methods=['GET', 'POST'])
     def register():
         if request.method == 'POST':
             try:
-                # Проверяем подключение к БД
-                db.session.execute(db.text('SELECT 1'))
-                app.logger.info('Database connection OK')
-                
                 username = request.form['username']
                 password = request.form['password']
-                app.logger.info(f'Processing registration for user: {username}')
                 
                 if User.query.filter_by(username=username).first():
                     flash('Пользователь уже существует')
@@ -119,9 +90,8 @@ def create_app():
                 flash('Регистрация успешна. Войдите.')
                 return redirect(url_for('login'))
                 
-            except Exception as e:
-                app.logger.error(f'Registration error: {e}')
-                flash(f'Ошибка регистрации: {str(e)}')
+            except:
+                flash('Ошибка регистрации')
                 return render_template('register.html')
         
         return render_template('register.html')

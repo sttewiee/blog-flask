@@ -254,7 +254,7 @@ jobs:
         echo "=== MONITORING SERVICES ==="
         kubectl get services -n blog-prod | grep -E "(prometheus|grafana)" || echo "Monitoring services not found"
         
-        # Note: External IPs will be waited for in notification job
+
 
   # ==========================================
   # STAGE: TESTING
@@ -324,7 +324,7 @@ jobs:
         echo "📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123)"
         echo "📋 Metrics: http://$FLASK_IP/metrics"
         
-        # Note: IPs will be obtained in notification job
+
 
   # ==========================================
   # STAGE: NOTIFICATIONS
