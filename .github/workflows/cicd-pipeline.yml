@@ -18,9 +18,7 @@ env:
   REPOSITORY: blog-flask
 
 jobs:
-  # ==========================================
-  # STAGE: BUILD & PUSH
-  # ==========================================
+  # BUILD & PUSH
   stage_build_push:
     runs-on: ubuntu-latest
     outputs:
@@ -104,9 +102,7 @@ jobs:
         docker push ${BASE_IMAGE}:${BRANCH}-${SHORT_SHA}
         docker push ${BASE_IMAGE}:${BRANCH}-${TIMESTAMP}
 
-  # ==========================================
-  # STAGE: DEPLOY DEV
-  # ==========================================
+  # DEPLOY DEV
   stage_deploy_dev:
     runs-on: ubuntu-latest
     needs: stage_build_push
@@ -132,7 +128,6 @@ jobs:
     
     - name: Cleanup old clusters
       run: |
-        # Delete old clusters to free up IP quota
         gcloud container clusters delete blog-cluster --region=${{ env.REGION }} --quiet || echo "Old cluster not found"
         gcloud container clusters delete blog-cluster-dev --region=${{ env.REGION }} --quiet || echo "DEV cluster not found"
         gcloud container clusters delete blog-cluster-prd --region=${{ env.REGION }} --quiet || echo "PROD cluster not found"
@@ -151,37 +146,27 @@ jobs:
     
     - name: Deploy to DEV
       run: |
-        # Get cluster credentials
         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
-        # Create namespace
         kubectl create namespace blog-dev --dry-run=client -o yaml | kubectl apply -f -
         
-        # Update image in deployment
         IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:dev-${{ needs.stage_build_push.outputs.short_sha }}"
         sed -i "s|image:.*|image: ${IMAGE}|g" k8s/deployment.yaml
         
-        # Force delete existing deployment
         kubectl delete deployment flask-blog -n blog-dev --ignore-not-found=true
         kubectl delete pods -l app=flask-blog -n blog-dev --ignore-not-found=true
         
-        # Apply manifests fresh
         kubectl apply -f k8s/deployment.yaml -n blog-dev
         kubectl apply -f k8s/service.yaml -n blog-dev
         
-        # Deploy monitoring stack (Prometheus + Grafana) for DEV
         kubectl apply -f k8s/monitoring.yaml -n blog-dev
         
-        # Wait for deployment
-        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=300s
+        kubectl rollout status deployment/flask-blog -n blog-dev --timeout=120s
         
-        # Show status
         kubectl get pods -n blog-dev
         kubectl get services -n blog-dev
 
-  # ==========================================
-  # STAGE: DEPLOY PRODUCTION
-  # ==========================================
+  # DEPLOY PRODUCTION
   stage_deploy_prd:
     runs-on: ubuntu-latest
     needs: stage_build_push
@@ -207,58 +192,44 @@ jobs:
     
     - name: Deploy to PRODUCTION
       run: |
-        # Get cluster credentials (same shared cluster)
         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
-        # Create namespace
         kubectl create namespace blog-prod --dry-run=client -o yaml | kubectl apply -f -
         
-        # 🔥 STOP DEV environment to free resources for PROD
         kubectl delete deployment flask-blog -n blog-dev --ignore-not-found=true
         kubectl delete pods -l app=flask-blog -n blog-dev --ignore-not-found=true
         echo "✅ DEV environment stopped to free resources for PROD"
         
-        # Update image in deployment
         IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:main-${{ needs.stage_build_push.outputs.short_sha }}"
         sed -i "s|image:.*|image: ${IMAGE}|g" k8s/deployment.yaml
         sed -i "s|namespace: blog-dev|namespace: blog-prod|g" k8s/deployment.yaml
         sed -i "s|namespace: blog-dev|namespace: blog-prod|g" k8s/service.yaml
         
-        # Force delete existing deployment (same as DEV)
         kubectl delete deployment flask-blog -n blog-prod --ignore-not-found=true
         kubectl delete pods -l app=flask-blog -n blog-prod --ignore-not-found=true
         
-        # Apply manifests fresh
         kubectl apply -f k8s/deployment.yaml -n blog-prod
         kubectl apply -f k8s/service.yaml -n blog-prod
         
-        # Deploy monitoring stack (Prometheus + Grafana) for PROD
         sed -i "s|namespace: blog-dev|namespace: blog-prod|g" k8s/monitoring.yaml
         kubectl apply -f k8s/monitoring.yaml -n blog-prod
-        # Restore original namespace
         sed -i "s|namespace: blog-prod|namespace: blog-dev|g" k8s/monitoring.yaml
         
-        # Wait for deployment
-        kubectl rollout status deployment/flask-blog -n blog-prod --timeout=300s
+        kubectl rollout status deployment/flask-blog -n blog-prod --timeout=200s
         
-        # Show status
         kubectl get pods -n blog-prod
         kubectl get services -n blog-prod
         
-        # Wait for monitoring services to get external IPs
         echo "Waiting for monitoring services..."
         kubectl wait --for=condition=ready pod -l app=prometheus-simple -n blog-prod --timeout=120s || echo "Prometheus not ready"
         kubectl wait --for=condition=ready pod -l app=grafana-simple -n blog-prod --timeout=120s || echo "Grafana not ready"
         
-        # Show monitoring services with external IPs
         echo "=== MONITORING SERVICES ==="
         kubectl get services -n blog-prod | grep -E "(prometheus|grafana)" || echo "Monitoring services not found"
         
 
 
-  # ==========================================
-  # STAGE: TESTING
-  # ==========================================
+  # TESTING
   stage_test_dev:
     runs-on: ubuntu-latest
     needs: [stage_build_push, stage_deploy_dev]
@@ -297,7 +268,6 @@ jobs:
         # Get cluster credentials
         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
         
-        # Get LoadBalancer IP
         EXTERNAL_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || echo "")
         
         if [[ -n "$EXTERNAL_IP" && "$EXTERNAL_IP" != "null" ]]; then
@@ -311,11 +281,9 @@ jobs:
         
         echo "✅ PRODUCTION deployment test completed"
         
-        # Show all external IPs for easy access
         echo "=== 🌐 PRODUCTION URLS ==="
         FLASK_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "34.91.2.135")
         
-        # Use the IPs we waited for, or get them again
         PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
         GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
         
@@ -326,9 +294,7 @@ jobs:
         
 
 
-  # ==========================================
-  # STAGE: NOTIFICATIONS
-  # ==========================================
+  # NOTIFICATIONS
   notify_success:
     runs-on: ubuntu-latest
     needs: [stage_build_push, stage_deploy_dev, stage_deploy_prd, stage_test_dev, stage_test_prd]
@@ -347,16 +313,13 @@ jobs:
       run: |
         BRANCH=${GITHUB_REF#refs/heads/}
         
-        # Determine environment and get monitoring URLs
         if [[ "$BRANCH" == "main" ]]; then
           ENVIRONMENT="🚀 PRODUCTION"
           
-          # Get cluster credentials for PROD monitoring URLs
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
           
           FLASK_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "34.91.2.135")
           
-          # Get monitoring IPs directly
           echo "=== DEBUG: Checking monitoring services ==="
           kubectl get services -n blog-prod | grep -E "(prometheus|grafana)" || echo "No monitoring services found"
           
@@ -371,10 +334,8 @@ jobs:
         else
           ENVIRONMENT="🔧 DEVELOPMENT"
           
-          # Get cluster credentials for DEV monitoring URLs  
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
           
-          # For DEV, try to get external IPs if available
           DEV_FLASK_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           DEV_PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           DEV_GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
