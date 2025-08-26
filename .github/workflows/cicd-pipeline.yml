@@ -329,20 +329,65 @@ jobs:
     if: always() && (needs.stage_build_push.result == 'success')
     
     steps:
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+    
+    - name: Setup Google Cloud CLI
+      uses: google-github-actions/setup-gcloud@v2
+    
     - name: Notify success
       run: |
         BRANCH=${GITHUB_REF#refs/heads/}
         
-        # Determine environment
+        # Determine environment and get monitoring URLs
         if [[ "$BRANCH" == "main" ]]; then
           ENVIRONMENT="🚀 PRODUCTION"
-          URL="http://34.91.2.135"
+          
+          # Get cluster credentials for PROD monitoring URLs
+          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
+          
+          FLASK_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "34.91.2.135")
+          PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          
+          URLS="🌐 <b>Production URLs:</b>
+📱 App: http://$FLASK_IP/
+📊 Prometheus: http://$PROMETHEUS_IP:9090/
+📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123)
+📋 Metrics: http://$FLASK_IP/metrics"
+          
         else
           ENVIRONMENT="🔧 DEVELOPMENT"
-          URL="DEV URL (check pipeline logs)"
+          
+          # Get cluster credentials for DEV monitoring URLs  
+          gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
+          
+          # For DEV, try to get external IPs if available
+          DEV_FLASK_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          DEV_PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          DEV_GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          
+          URLS="🌐 <b>Development URLs:</b>
+📱 App: http://$DEV_FLASK_IP/ 
+📊 Prometheus: http://$DEV_PROMETHEUS_IP:9090/
+📈 Grafana: http://$DEV_GRAFANA_IP:3000/ (admin/admin123)
+📋 Metrics: http://$DEV_FLASK_IP/metrics
+
+<i>💡 If IPs show 'pending', use port-forward:
+kubectl port-forward -n blog-dev svc/prometheus-simple-service 9090:9090
+kubectl port-forward -n blog-dev svc/grafana-simple-service 3000:3000</i>"
         fi
         
-        MESSAGE="✅ CI/CD SUCCESS | Branch: $BRANCH | Environment: $ENVIRONMENT | Commit: ${GITHUB_SHA:0:8} | URL: $URL | 🎉 Deployment completed successfully!"
+        MESSAGE="✅ <b>CI/CD SUCCESS</b>
+🔧 Branch: <code>$BRANCH</code>
+🌍 Environment: $ENVIRONMENT
+📝 Commit: <code>${GITHUB_SHA:0:8}</code>
+
+$URLS
+
+🎉 <b>Deployment completed successfully!</b>"
         
         curl -s -X POST "https://api.telegram.org/bot8251627883:AAGx2cF8wSVTgXaiFM5hNIXVnM2UAlTbRMo/sendMessage" \
           -d chat_id="-4872258641" \
