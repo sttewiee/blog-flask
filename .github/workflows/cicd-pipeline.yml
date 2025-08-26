@@ -336,6 +336,23 @@ jobs:
     - name: Setup Google Cloud CLI
       uses: google-github-actions/setup-gcloud@v2
     
+    - name: Install gke-gcloud-auth-plugin
+      run: |
+        # Install gpg if not available
+        sudo apt-get update
+        sudo apt-get install -y gnupg
+        
+        # Add Google Cloud SDK repository
+        sudo mkdir -p /usr/share/keyrings
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+        
+        # Update and install plugin
+        sudo apt-get update
+        sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+        
+        echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+    
     - name: Notify success
       run: |
         BRANCH=${GITHUB_REF#refs/heads/}
