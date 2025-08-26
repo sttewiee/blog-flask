@@ -352,11 +352,7 @@ jobs:
           PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           
-          URLS="🌐 <b>Production URLs:</b>
-📱 App: http://$FLASK_IP/
-📊 Prometheus: http://$PROMETHEUS_IP:9090/
-📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123)
-📋 Metrics: http://$FLASK_IP/metrics"
+          URLS="🌐 Production URLs: 📱 App: http://$FLASK_IP/ 📊 Prometheus: http://$PROMETHEUS_IP:9090/ 📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123) 📋 Metrics: http://$FLASK_IP/metrics"
           
         else
           ENVIRONMENT="🔧 DEVELOPMENT"
@@ -369,25 +365,10 @@ jobs:
           DEV_PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           DEV_GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           
-          URLS="🌐 <b>Development URLs:</b>
-📱 App: http://$DEV_FLASK_IP/ 
-📊 Prometheus: http://$DEV_PROMETHEUS_IP:9090/
-📈 Grafana: http://$DEV_GRAFANA_IP:3000/ (admin/admin123)
-📋 Metrics: http://$DEV_FLASK_IP/metrics
-
-<i>💡 If IPs show 'pending', use port-forward:
-kubectl port-forward -n blog-dev svc/prometheus-simple-service 9090:9090
-kubectl port-forward -n blog-dev svc/grafana-simple-service 3000:3000</i>"
+          URLS="🌐 Development URLs: 📱 App: http://$DEV_FLASK_IP/ 📊 Prometheus: http://$DEV_PROMETHEUS_IP:9090/ 📈 Grafana: http://$DEV_GRAFANA_IP:3000/ (admin/admin123) 📋 Metrics: http://$DEV_FLASK_IP/metrics"
         fi
         
-        MESSAGE="✅ <b>CI/CD SUCCESS</b>
-🔧 Branch: <code>$BRANCH</code>
-🌍 Environment: $ENVIRONMENT
-📝 Commit: <code>${GITHUB_SHA:0:8}</code>
-
-$URLS
-
-🎉 <b>Deployment completed successfully!</b>"
+        MESSAGE="✅ CI/CD SUCCESS | Branch: $BRANCH | Environment: $ENVIRONMENT | Commit: ${GITHUB_SHA:0:8} | $URLS | 🎉 Deployment completed successfully!"
         
         curl -s -X POST "https://api.telegram.org/bot8251627883:AAGx2cF8wSVTgXaiFM5hNIXVnM2UAlTbRMo/sendMessage" \
           -d chat_id="-4872258641" \
