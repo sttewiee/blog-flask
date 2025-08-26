@@ -28,6 +28,32 @@ docker compose up --build
 
 ### Развертывание в GCP
 
+#### Рекомендуемый процесс разработки:
+
+**Этап 1: Разработка**
+```bash
+git checkout dev
+# Разрабатываем новую функциональность
+git add .
+git commit -m "Add user authentication"
+git push origin dev
+# → Автоматический деплой в dev окружение
+```
+
+**Этап 2: Тестирование**
+- Проверяем dev окружение: `http://34.12.188.35`
+- Тестируем функциональность
+- Исправляем баги если нужно
+
+**Этап 3: Релиз**
+```bash
+git checkout main
+git merge dev --no-ff -m "Release: user authentication feature"
+git push origin main
+# → Автоматический деплой в prod окружение
+```
+
+#### Быстрое развертывание:
 ```bash
 # Запушить в dev ветку для тестирования
 git checkout -b dev
@@ -164,4 +190,41 @@ kubectl describe service grafana-shared-service -n monitoring
 # Логи мониторинга
 kubectl logs -n monitoring deployment/prometheus-shared
 kubectl logs -n monitoring deployment/grafana-shared
+```
+
+## Git Workflow
+
+### Когда мержить в prod:
+
+#### ✅ Мержить когда:
+- Функциональность протестирована в dev
+- Нет критических багов
+- Код прошел ревью
+- Готов к продакшну
+
+#### ❌ НЕ мержить когда:
+- Есть неисправленные баги
+- Функциональность не протестирована
+- Код не готов к продакшну
+
+### Создание новой функциональности:
+```bash
+git checkout dev
+git pull origin dev
+git checkout -b feature/user-dashboard
+# Разрабатываем...
+git add .
+git commit -m "Add user dashboard"
+git push origin feature/user-dashboard
+# Создаем PR в dev
+```
+
+### Готовый релиз:
+```bash
+git checkout main
+git pull origin main
+git merge dev --no-ff -m "Release v1.3.0: user dashboard"
+git tag v1.3.0
+git push origin main
+git push origin v1.3.0
 ```
