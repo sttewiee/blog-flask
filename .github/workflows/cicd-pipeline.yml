@@ -150,6 +150,11 @@ jobs:
         
         kubectl create namespace blog-dev --dry-run=client -o yaml | kubectl apply -f -
         
+        # 🔥 STOP PROD environment to free resources for DEV
+        kubectl delete deployment flask-blog -n blog-prod --ignore-not-found=true
+        kubectl delete pods -l app=flask-blog -n blog-prod --ignore-not-found=true
+        echo "✅ PROD environment stopped to free resources for DEV"
+        
         IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/blog-flask:dev-${{ needs.stage_build_push.outputs.short_sha }}"
         sed -i "s|image:.*|image: ${IMAGE}|g" k8s/deployment.yaml
         
@@ -336,7 +341,18 @@ jobs:
           
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
           
-          DEV_FLASK_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          # Wait for LoadBalancer IP to be assigned
+          echo "Waiting for LoadBalancer IP assignment..."
+          for i in {1..30}; do
+            DEV_FLASK_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            if [[ -n "$DEV_FLASK_IP" && "$DEV_FLASK_IP" != "null" ]]; then
+              echo "✅ Flask IP assigned: $DEV_FLASK_IP"
+              break
+            fi
+            echo "Waiting for Flask IP... (attempt $i/30)"
+            sleep 10
+          done
+          
           DEV_PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           DEV_GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           
