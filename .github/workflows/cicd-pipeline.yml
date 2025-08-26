@@ -367,17 +367,8 @@ jobs:
           
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }} || true
           
-          # Wait for LoadBalancer IP to be assigned
-          echo "Waiting for LoadBalancer IP assignment..."
-          for i in {1..30}; do
-            DEV_FLASK_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-            if [[ -n "$DEV_FLASK_IP" && "$DEV_FLASK_IP" != "null" ]]; then
-              echo "✅ Flask IP assigned: $DEV_FLASK_IP"
-              break
-            fi
-            echo "Waiting for Flask IP... (attempt $i/30)"
-            sleep 10
-          done
+          # Get Flask IP directly
+          DEV_FLASK_IP=$(kubectl get service flask-blog-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           
           DEV_PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           DEV_GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
