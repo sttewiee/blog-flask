@@ -2,68 +2,6 @@
 
 Полнофункциональный Flask блог с автоматизированным CI/CD pipeline для развертывания в Google Kubernetes Engine (GKE).
 
-## Предварительные требования
-
-### Для локальной разработки:
-- Docker и Docker Compose
-- Python 3.11+
-- Git
-
-### Для развертывания в GCP:
-- Google Cloud Project с включенными API:
-  - Kubernetes Engine API
-  - Artifact Registry API
-  - Cloud Build API
-- Service Account с правами:
-  - Kubernetes Engine Admin
-  - Artifact Registry Admin
-  - Cloud Build Service Account
-- GitHub Secrets настроенные:
-  - GCP_SA_KEY - JSON ключ Service Account
-- Telegram Bot (опционально):
-  - Bot Token
-  - Chat ID для уведомлений
-
-### Настройка GCP Project
-
-```bash
-# Создать проект (если нет)
-gcloud projects create [PROJECT_ID] --name="Blog Flask Project"
-
-# Установить проект
-gcloud config set project [PROJECT_ID]
-
-# Включить необходимые API
-gcloud services enable container.googleapis.com
-gcloud services enable artifactregistry.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
-
-# Создать Service Account
-gcloud iam service-accounts create github-actions-deployer \
-  --display-name="GitHub Actions Deployer"
-
-# Назначить роли
-gcloud projects add-iam-policy-binding [PROJECT_ID] \
-  --member="serviceAccount:github-actions-deployer@[PROJECT_ID].iam.gserviceaccount.com" \
-  --role="roles/container.admin"
-
-gcloud projects add-iam-policy-binding [PROJECT_ID] \
-  --member="serviceAccount:github-actions-deployer@[PROJECT_ID].iam.gserviceaccount.com" \
-  --role="roles/artifactregistry.admin"
-
-# Создать и скачать ключ
-gcloud iam service-accounts keys create gcp-sa-key.json \
-  --iam-account=github-actions-deployer@[PROJECT_ID].iam.gserviceaccount.com
-```
-
-### Настройка GitHub Secrets
-
-В настройках репозитория (Settings → Secrets and variables → Actions):
-
-- GCP_SA_KEY - содержимое файла gcp-sa-key.json
-- TELEGRAM_BOT_TOKEN - токен бота (опционально)
-- TELEGRAM_CHAT_ID - ID чата (опционально)
-
 ## Архитектура
 
 ### Компоненты:
@@ -91,17 +29,6 @@ docker compose up --build
 ### Развертывание в GCP
 
 ```bash
-# Клонировать репозиторий
-git clone https://github.com/sttewiee/blog-flask.git
-cd blog-flask
-
-# Настроить переменные окружения
-# Отредактировать .github/workflows/cicd-pipeline.yml:
-# - PROJECT_ID: ваш GCP проект
-# - REGION: ваш регион (например, europe-west4)
-
-# Настроить GitHub Secrets (см. выше)
-
 # Запушить в dev ветку для тестирования
 git checkout -b dev
 git push origin dev
@@ -113,8 +40,6 @@ git push origin main
 
 ## Локальная разработка
 
-### Docker Compose
-
 ```bash
 # Запуск
 docker compose up --build
@@ -124,14 +49,13 @@ docker compose exec web python -m pytest -v
 
 # Остановка
 docker compose down
+
+# Проверка метрик
+curl http://localhost:5000/metrics
+
+# Health check
+curl http://localhost:5000/health
 ```
-
-## Работа с Git
-
-### Структура веток
-- main - Production (автодеплой в PROD)
-- dev - Development (автодеплой в DEV)
-- feature/* - Новые функции
 
 ## CI/CD Pipeline
 
@@ -164,15 +88,6 @@ docker compose down
 - Health check приложения
 - HTTP тесты
 - Telegram уведомления с URL мониторинга
-
-### Просмотр статуса
-```bash
-# GitHub Actions
-https://github.com/sttewiee/blog-flask/actions
-
-# Логи в реальном времени
-# Выбираем workflow → job → step
-```
 
 ## Kubernetes
 
@@ -234,28 +149,7 @@ kubectl get service prometheus-shared-service -n monitoring -o jsonpath='{.statu
 kubectl get service grafana-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 ```
 
-### Полная команда для всех URL
-
-```bash
-echo "=== PRODUCTION URLs ===" && \
-FLASK_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}') && \
-PROMETHEUS_IP=$(kubectl get service prometheus-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}') && \
-GRAFANA_IP=$(kubectl get service grafana-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}') && \
-echo "Flask App: http://$FLASK_IP/" && \
-echo "Prometheus: http://$PROMETHEUS_IP:9090/" && \
-echo "Grafana: http://$GRAFANA_IP:3000/ (admin/admin123)" && \
-echo "Metrics: http://$FLASK_IP/metrics"
-```
-
 ## Мониторинг
-
-### Общий мониторинг для DEV/PROD
-
-Система использует один набор Prometheus + Grafana в namespace monitoring для мониторинга обоих окружений:
-
-- Prometheus автоматически обнаруживает сервисы в blog-dev и blog-prod
-- Grafana показывает дашборды для обоих окружений
-- Экономия ресурсов - вместо 4 LoadBalancer только 2
 
 ### Отладка мониторинга
 
@@ -270,74 +164,4 @@ kubectl describe service grafana-shared-service -n monitoring
 # Логи мониторинга
 kubectl logs -n monitoring deployment/prometheus-shared
 kubectl logs -n monitoring deployment/grafana-shared
-
-# Проверка targets в Prometheus
-curl -s "http://$(kubectl get service prometheus-shared-service -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].ip}'):9090/api/v1/targets" | jq '.data.activeTargets[] | {job: .labels.job, instance: .labels.instance, health: .health}'
 ```
-
-### Локальная разработка
-
-```bash
-# Запуск
-docker compose up -d
-
-# Проверка метрик
-curl http://localhost:5000/metrics
-
-# Health check
-curl http://localhost:5000/health
-```
-
-## Устранение неполадок
-
-### Проблемы с gke-gcloud-auth-plugin
-
-```bash
-# Ошибка: "Request had insufficient authentication scopes"
-# Решение: Установить плагин (см. раздел "Подключение к кластеру")
-
-# Ошибка: "gke-gcloud-auth-plugin not found"
-# Решение: Переустановить плагин
-sudo apt-get remove google-cloud-sdk-gke-gcloud-auth-plugin
-sudo apt-get install google-cloud-sdk-gke-gcloud-auth-plugin
-```
-
-### Проблемы с LoadBalancer IP
-
-```bash
-# Проверка квоты IP адресов
-gcloud compute addresses list
-
-# Если превышена квота - удалить неиспользуемые IP
-gcloud compute addresses delete [IP_NAME] --region=europe-west4
-
-# Проверка событий сервиса
-kubectl describe service grafana-shared-service -n monitoring
-```
-
-### Проблемы с мониторингом
-
-```bash
-# Проверка конфигурации Prometheus
-kubectl get configmap prometheus-config-shared -n monitoring -o yaml
-
-# Проверка аннотаций сервисов
-kubectl get service flask-blog-service -n blog-prod -o yaml | grep -A 5 annotations
-```
-
-### Проблемы с CI/CD
-
-```bash
-# Проверка GitHub Secrets
-# Убедиться что GCP_SA_KEY содержит валидный JSON
-
-# Проверка прав Service Account
-gcloud projects get-iam-policy [PROJECT_ID] \
-  --flatten="bindings[].members" \
-  --format='table(bindings.role)' \
-  --filter="bindings.members:github-actions-deployer"
-
-# Проверка API
-gcloud services list --enabled --filter="name:container.googleapis.com OR name:artifactregistry.googleapis.com"
-```
-
