@@ -169,6 +169,9 @@ jobs:
         kubectl apply -f k8s/deployment.yaml -n blog-dev
         kubectl apply -f k8s/service.yaml -n blog-dev
         
+        # Deploy monitoring stack (Prometheus + Grafana) for DEV
+        kubectl apply -f k8s/monitoring.yaml -n blog-dev
+        
         # Wait for deployment
         kubectl rollout status deployment/flask-blog -n blog-dev --timeout=300s
         
@@ -283,6 +286,7 @@ jobs:
         if [[ -n "$EXTERNAL_IP" && "$EXTERNAL_IP" != "null" ]]; then
           echo "Testing production at http://$EXTERNAL_IP"
           curl -f http://$EXTERNAL_IP/health || echo "Health check failed"
+          curl -f http://$EXTERNAL_IP/metrics | head -5 || echo "Metrics test failed"
           curl -f http://$EXTERNAL_IP/ | head -5 || echo "Main page test failed"
         else
           echo "External IP not ready yet, skipping HTTP tests"
