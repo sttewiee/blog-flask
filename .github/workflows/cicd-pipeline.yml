@@ -123,7 +123,19 @@ jobs:
     
     - name: Install gke-gcloud-auth-plugin
       run: |
-        gcloud components install gke-gcloud-auth-plugin
+        # Install gpg if not available
+        sudo apt-get update
+        sudo apt-get install -y gnupg
+        
+        # Add Google Cloud SDK repository
+        sudo mkdir -p /usr/share/keyrings
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+        
+        # Update and install plugin
+        sudo apt-get update
+        sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+        
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
     
     - name: Cleanup old clusters
@@ -190,7 +202,19 @@ jobs:
     
     - name: Install gke-gcloud-auth-plugin
       run: |
-        gcloud components install gke-gcloud-auth-plugin
+        # Install gpg if not available
+        sudo apt-get update
+        sudo apt-get install -y gnupg
+        
+        # Add Google Cloud SDK repository
+        sudo mkdir -p /usr/share/keyrings
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+        
+        # Update and install plugin
+        sudo apt-get update
+        sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
+        
         echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
     
     - name: Deploy to PRODUCTION
@@ -332,6 +356,10 @@ jobs:
           echo "📊 Prometheus IP: $PROMETHEUS_IP"
           echo "📈 Grafana IP: $GRAFANA_IP"
           
+          # Get all services info
+          echo "=== All PROD Services ==="
+          kubectl get services -n blog-prod
+          
           URLS="🌐 Production URLs: 📱 App: http://$FLASK_IP/ 📊 Prometheus: http://$PROMETHEUS_IP:9090/ 📈 Grafana: http://$GRAFANA_IP:3000/ (admin/admin123) 📋 Metrics: http://$FLASK_IP/metrics"
           
         else
@@ -353,6 +381,10 @@ jobs:
           
           DEV_PROMETHEUS_IP=$(kubectl get service prometheus-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
           DEV_GRAFANA_IP=$(kubectl get service grafana-simple-service -n blog-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          
+          # Get all services info
+          echo "=== All DEV Services ==="
+          kubectl get services -n blog-dev
           
           URLS="🌐 Development URLs: 📱 App: http://$DEV_FLASK_IP/ 📊 Prometheus: http://$DEV_PROMETHEUS_IP:9090/ 📈 Grafana: http://$DEV_GRAFANA_IP:3000/ (admin/admin123) 📋 Metrics: http://$DEV_FLASK_IP/metrics"
         fi
