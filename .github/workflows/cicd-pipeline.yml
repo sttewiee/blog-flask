@@ -299,6 +299,17 @@ jobs:
         kubectl get pods -n blog-prod
         kubectl get services -n blog-prod
         
+        # Update DuckDNS for PROD
+        echo "Updating DuckDNS for PROD..."
+        EXTERNAL_IP=$(kubectl get service flask-blog-service -n blog-prod -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        if [[ -n "$EXTERNAL_IP" && "$EXTERNAL_IP" != "null" ]]; then
+          echo "Updating lapikov.duckdns.org with IP: $EXTERNAL_IP"
+          curl -s "https://www.duckdns.org/update?domains=lapikov&token=413beafc-50cf-429f-94fc-be114815acab&ip=$EXTERNAL_IP"
+          echo "DuckDNS update completed"
+        else
+          echo "External IP not ready, skipping DuckDNS update"
+        fi
+        
         echo "Waiting for monitoring services..."
         kubectl wait --for=condition=ready pod -l app=prometheus-shared -n monitoring --timeout=120s || echo "Prometheus not ready"
         kubectl wait --for=condition=ready pod -l app=grafana-shared -n monitoring --timeout=120s || echo "Grafana not ready"
