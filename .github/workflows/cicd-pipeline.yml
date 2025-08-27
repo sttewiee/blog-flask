@@ -249,6 +249,14 @@ jobs:
         
         kubectl create namespace blog-prod --dry-run=client -o yaml | kubectl apply -f -
         
+        # Install cert-manager and nginx-ingress if not exists
+        echo "Installing cert-manager and nginx-ingress..."
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml || echo "cert-manager already installed"
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml || echo "nginx-ingress already installed"
+        
+        # Wait for cert-manager to be ready
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cert-manager -n cert-manager --timeout=300s || echo "cert-manager not ready"
+        
         # PROD environment - don't touch DEV
         echo "✅ Deploying PROD environment (DEV remains untouched)"
         
@@ -276,6 +284,10 @@ jobs:
         
         kubectl apply -f k8s/service.yaml -n blog-prod
         kubectl apply -f k8s/hpa-prod.yaml -n blog-prod
+        
+        # Deploy HTTPS configuration
+        kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
+        kubectl apply -f k8s/ingress-prod.yaml
         
         kubectl apply -f k8s/monitoring-shared.yaml
         
@@ -306,6 +318,11 @@ jobs:
           echo "Updating lapikov.duckdns.org with IP: $EXTERNAL_IP"
           curl -s "https://www.duckdns.org/update?domains=lapikov&token=413beafc-50cf-429f-94fc-be114815acab&ip=$EXTERNAL_IP"
           echo "DuckDNS update completed"
+          
+          # Wait for DNS propagation and check HTTPS
+          echo "Waiting for DNS propagation and HTTPS setup..."
+          sleep 60
+          curl -I https://lapikov.duckdns.org || echo "HTTPS not ready yet"
         else
           echo "External IP not ready, skipping DuckDNS update"
         fi
