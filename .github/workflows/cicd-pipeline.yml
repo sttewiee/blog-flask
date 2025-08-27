@@ -257,6 +257,10 @@ jobs:
         # Wait for cert-manager to be ready
         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cert-manager -n cert-manager --timeout=300s || echo "cert-manager not ready"
         
+        # Wait for nginx-ingress to be ready
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ingress-nginx -n ingress-nginx --timeout=300s || echo "nginx-ingress not ready"
+        sleep 30  # Extra wait for webhook
+        
         # PROD environment - don't touch DEV
         echo "✅ Deploying PROD environment (DEV remains untouched)"
         
@@ -287,7 +291,18 @@ jobs:
         
         # Deploy HTTPS configuration
         kubectl apply -f k8s/clusterissuer-letsencrypt.yaml
-        kubectl apply -f k8s/ingress-prod.yaml
+        
+        # Deploy Ingress with retry
+        echo "Deploying Ingress..."
+        for i in {1..3}; do
+          if kubectl apply -f k8s/ingress-prod.yaml; then
+            echo "Ingress deployed successfully"
+            break
+          else
+            echo "Ingress deployment failed, attempt $i/3"
+            sleep 30
+          fi
+        done
         
         kubectl apply -f k8s/monitoring-shared.yaml
         
