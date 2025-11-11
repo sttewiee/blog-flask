@@ -5,3 +5,4 @@ psycopg2-binary
 pytest==8.4.1
 pytest-cov==6.2.1
 prometheus-flask-exporter==0.23.0
+flake8==7.1.0

@@ -1,18 +1,36 @@
-<!doctype html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <title>Создать пост</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-<div class="container mt-4">
-    <h2>Создать пост</h2>
-    <form method="post">
-        <input class="form-control mb-2" name="title" placeholder="Заголовок">
-        <textarea class="form-control mb-2" name="content" placeholder="Текст"></textarea>
-        <button class="btn btn-success" type="submit">Опубликовать</button>
-    </form>
-</div>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Создать статью{% endblock %}
+
+{% block content %}
+<h2>Создать статью</h2>
+<form method="post">
+    <div class="mb-3">
+        <label for="space_id" class="form-label">Пространство</label>
+        <select class="form-select" id="space_id" name="space_id" required>
+            <option value="" disabled>Выберите пространство</option>
+            {% for space in spaces %}
+                <option value="{{ space.id }}" {% if space.id == preselected_space_id %}selected{% endif %}>{{ space.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="parent_id" class="form-label">Родительская статья (необязательно)</label>
+        <select class="form-select" id="parent_id" name="parent_id">
+            <option value="None">Нет (корневая статья)</option>
+            {% for article in articles_for_parent_dropdown %}
+                <option value="{{ article.id }}">{{ article.title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="title" class="form-label">Заголовок</label>
+        <input class="form-control" id="title" name="title" placeholder="Заголовок статьи" required>
+    </div>
+    <div class="mb-3">
+        <label for="content" class="form-label">Содержимое</label>
+        <textarea class="form-control" id="content" name="content" placeholder="Текст статьи" rows="10" required></textarea>
+    </div>
+    <button class="btn btn-success" type="submit">Опубликовать</button>
+</form>
+{% endblock %}

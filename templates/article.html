@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Главная</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('space_home', space_key=article.space.key) }}">{{ article.space.name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ article.title }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>{{ article.title }}</h1>
+    <div>
+        {% if session.user_id and (g.user.role == 'admin' or (g.user.role == 'editor' and g.user.id == article.author_id)) %}
+            <a href="{{ url_for('edit', article_id=article.id) }}" class="btn btn-warning btn-sm">Редактировать</a>
+            <a href="{{ url_for('article_history', space_key=article.space.key, article_id=article.id) }}" class="btn btn-info btn-sm">История</a>
+            <form action="{{ url_for('delete', article_id=article.id) }}" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {{ article.content | safe }}
+    </div>
+    <div class="card-footer text-muted">
+        Автор: {{ article.author.username }}
+    </div>
+</div>
+{% endblock %}
